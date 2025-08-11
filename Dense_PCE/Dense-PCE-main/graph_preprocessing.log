@@ -1,0 +1,418 @@
+2025-08-09 16:41:14,538 - INFO - All required tools verified successfully
+2025-08-09 16:41:14,538 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein.grh -> H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein_processed
+2025-08-09 16:41:14,541 - INFO - Copied original .grh file to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein_processed\Protein.grh
+2025-08-09 16:41:14,541 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein.grh to edges format
+2025-08-09 16:41:14,606 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein_processed\Protein.edges
+2025-08-09 16:41:14,606 - INFO - Cleaning edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein_processed\Protein.edges
+2025-08-09 16:41:14,606 - INFO - Running command: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\BBkC p H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein_processed\Protein.edges
+2025-08-09 16:41:14,608 - ERROR - Error in edges to clean conversion: [WinError 193] %1 is not a valid Win32 application
+2025-08-09 16:41:14,608 - ERROR - Pipeline failed!
+2025-08-09 16:45:40,745 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 16:45:40,745 - INFO - Tool verification completed
+2025-08-09 16:45:40,746 - INFO - Processing protein/Protein.grh -> protein\Protein_processed
+2025-08-09 16:45:40,749 - INFO - Copied original .grh file to protein\Protein_processed\Protein.grh
+2025-08-09 16:45:40,749 - INFO - Converting protein\Protein.grh to edges format
+2025-08-09 16:45:40,815 - INFO - Successfully converted to protein\Protein_processed\Protein.edges
+2025-08-09 16:45:40,815 - INFO - Internal cleaning of edges file protein\Protein_processed\Protein.edges
+2025-08-09 16:45:40,933 - INFO - Successfully created clean file: protein\Protein_processed\Protein.clean
+2025-08-09 16:45:40,934 - INFO - Processed 81044 unique edges, max node ID: 43465
+2025-08-09 16:45:40,942 - INFO - Internal binary conversion of protein\Protein_processed\Protein.clean
+2025-08-09 16:45:41,028 - INFO - Successfully created binary files: b_adj.bin and b_degree.bin
+2025-08-09 16:45:41,028 - INFO - Graph: 43466 nodes, 81044 edges
+2025-08-09 16:45:41,033 - INFO - Successfully processed protein/Protein.grh
+2025-08-09 16:45:41,034 - INFO - Output directory: protein\Protein_processed
+2025-08-09 16:45:41,034 - INFO - Generated files:
+2025-08-09 16:45:41,034 - INFO -   b_adj.bin (822220 bytes)
+2025-08-09 16:45:41,034 - INFO -   b_degree.bin (173868 bytes)
+2025-08-09 16:45:41,034 - INFO -   Protein.clean (1011486 bytes)
+2025-08-09 16:45:41,034 - INFO -   Protein.edges (1011484 bytes)
+2025-08-09 16:45:41,034 - INFO -   Protein.grh (973906 bytes)
+2025-08-09 16:45:41,035 - INFO - Pipeline completed successfully!
+2025-08-09 16:45:57,532 - INFO - All required tools verified successfully
+2025-08-09 16:45:57,532 - ERROR - Input file does not exist: /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE\CSE491-/Dense_PCE/Dense-PCE-main/Protein/Protein.grh
+2025-08-09 16:45:57,532 - ERROR - Pipeline failed!
+2025-08-09 16:50:07,053 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 16:50:07,053 - INFO - Tool verification completed
+2025-08-09 16:50:07,053 - INFO - Processing testGraphs/fpce_graph/fpce_graph.grh in directory testGraphs\fpce_graph
+2025-08-09 16:50:07,054 - INFO - Converting testGraphs\fpce_graph\fpce_graph.grh to edges format
+2025-08-09 16:50:07,054 - INFO - Successfully converted to testGraphs\fpce_graph\fpce_graph.edges
+2025-08-09 16:50:07,054 - INFO - Internal cleaning of edges file testGraphs\fpce_graph\fpce_graph.edges
+2025-08-09 16:50:07,061 - INFO - Successfully created clean file: testGraphs\fpce_graph\fpce_graph.clean
+2025-08-09 16:50:07,062 - INFO - Processed 14 unique edges, max node ID: 12
+2025-08-09 16:50:07,062 - INFO - Internal binary conversion of testGraphs\fpce_graph\fpce_graph.clean
+2025-08-09 16:50:07,068 - INFO - Successfully created binary files: b_adj.bin and b_degree.bin
+2025-08-09 16:50:07,069 - INFO - Graph: 13 nodes, 14 edges
+2025-08-09 16:50:07,069 - INFO - Successfully processed testGraphs/fpce_graph/fpce_graph.grh
+2025-08-09 16:50:07,069 - INFO - Output directory: testGraphs\fpce_graph
+2025-08-09 16:50:07,069 - INFO - Generated files:
+2025-08-09 16:50:07,069 - INFO -   b_adj.bin (168 bytes)
+2025-08-09 16:50:07,070 - INFO -   b_degree.bin (56 bytes)
+2025-08-09 16:50:07,070 - INFO -   cliques_K1 (0 bytes)
+2025-08-09 16:50:07,070 - INFO -   cliques_K2 (74 bytes)
+2025-08-09 16:50:07,070 - INFO -   cliques_K3 (14 bytes)
+2025-08-09 16:50:07,070 - INFO -   cliques_K4 (0 bytes)
+2025-08-09 16:50:07,070 - INFO -   fpce_graph.clean (76 bytes)
+2025-08-09 16:50:07,070 - INFO -   fpce_graph.edges (74 bytes)
+2025-08-09 16:50:07,070 - INFO -   fpce_graph.grh (71 bytes)
+2025-08-09 16:50:07,071 - INFO -   fpce_graph.txt (71 bytes)
+2025-08-09 16:50:07,071 - INFO - Pipeline completed successfully!
+2025-08-09 16:50:42,957 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 16:50:42,958 - INFO - Tool verification completed
+2025-08-09 16:50:42,958 - INFO - Processing protein/Protein.grh in directory protein
+2025-08-09 16:50:42,958 - INFO - Converting protein\Protein.grh to edges format
+2025-08-09 16:50:43,024 - INFO - Successfully converted to protein\Protein.edges
+2025-08-09 16:50:43,025 - INFO - Internal cleaning of edges file protein\Protein.edges
+2025-08-09 16:50:43,144 - INFO - Successfully created clean file: protein\Protein.clean
+2025-08-09 16:50:43,144 - INFO - Processed 81044 unique edges, max node ID: 43465
+2025-08-09 16:50:43,153 - INFO - Internal binary conversion of protein\Protein.clean
+2025-08-09 16:50:43,243 - INFO - Successfully created binary files: b_adj.bin and b_degree.bin
+2025-08-09 16:50:43,243 - INFO - Graph: 43466 nodes, 81044 edges
+2025-08-09 16:50:43,247 - INFO - Successfully processed protein/Protein.grh
+2025-08-09 16:50:43,248 - INFO - Output directory: protein
+2025-08-09 16:50:43,248 - INFO - Generated files:
+2025-08-09 16:50:43,248 - INFO -   b_adj.bin (822220 bytes)
+2025-08-09 16:50:43,249 - INFO -   b_degree.bin (173868 bytes)
+2025-08-09 16:50:43,249 - INFO -   Protein.clean (1011486 bytes)
+2025-08-09 16:50:43,249 - INFO -   Protein.edges (1011484 bytes)
+2025-08-09 16:50:43,249 - INFO -   Protein.grh (973906 bytes)
+2025-08-09 16:50:43,249 - INFO - Pipeline completed successfully!
+2025-08-09 16:53:49,540 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 16:53:49,541 - INFO - Tool verification completed
+2025-08-09 16:53:49,541 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein
+2025-08-09 16:53:49,541 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein.grh to edges format
+2025-08-09 16:53:49,603 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein.edges
+2025-08-09 16:53:49,604 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein.edges
+2025-08-09 16:53:49,703 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein.clean
+2025-08-09 16:53:49,703 - INFO - Processed 81044 unique edges, max node ID: 43465
+2025-08-09 16:53:49,709 - INFO - Internal binary conversion of H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein.clean
+2025-08-09 16:53:49,782 - INFO - Successfully created binary files: b_adj.bin and b_degree.bin
+2025-08-09 16:53:49,782 - INFO - Graph: 43466 nodes, 81044 edges
+2025-08-09 16:53:49,786 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein\Protein.grh
+2025-08-09 16:53:49,787 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\protein
+2025-08-09 16:53:49,787 - INFO - Generated files:
+2025-08-09 16:53:49,787 - INFO -   b_adj.bin (822220 bytes)
+2025-08-09 16:53:49,788 - INFO -   b_degree.bin (173868 bytes)
+2025-08-09 16:53:49,788 - INFO -   Protein.clean (1011486 bytes)
+2025-08-09 16:53:49,788 - INFO -   Protein.edges (1011484 bytes)
+2025-08-09 16:53:49,788 - INFO -   Protein.grh (973906 bytes)
+2025-08-09 16:53:49,788 - INFO - Pipeline completed successfully!
+2025-08-09 16:55:32,500 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 16:55:32,502 - INFO - Tool verification completed
+2025-08-09 16:55:32,504 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph
+2025-08-09 16:55:32,505 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.grh to edges format
+2025-08-09 16:55:32,505 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.edges
+2025-08-09 16:55:32,506 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.edges
+2025-08-09 16:55:32,507 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.clean
+2025-08-09 16:55:32,508 - INFO - Processed 14 unique edges, max node ID: 12
+2025-08-09 16:55:32,508 - INFO - Internal binary conversion of H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.clean
+2025-08-09 16:55:32,510 - INFO - Successfully created binary files: b_adj.bin and b_degree.bin
+2025-08-09 16:55:32,510 - INFO - Graph: 13 nodes, 14 edges
+2025-08-09 16:55:32,510 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.grh
+2025-08-09 16:55:32,511 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph
+2025-08-09 16:55:32,511 - INFO - Generated files:
+2025-08-09 16:55:32,512 - INFO -   b_adj.bin (168 bytes)
+2025-08-09 16:55:32,513 - INFO -   b_degree.bin (56 bytes)
+2025-08-09 16:55:32,514 - INFO -   cliques_K1 (0 bytes)
+2025-08-09 16:55:32,516 - INFO -   cliques_K2 (74 bytes)
+2025-08-09 16:55:32,517 - INFO -   cliques_K3 (14 bytes)
+2025-08-09 16:55:32,517 - INFO -   cliques_K4 (0 bytes)
+2025-08-09 16:55:32,518 - INFO -   fpce_graph.clean (76 bytes)
+2025-08-09 16:55:32,518 - INFO -   fpce_graph.edges (74 bytes)
+2025-08-09 16:55:32,519 - INFO -   fpce_graph.grh (71 bytes)
+2025-08-09 16:55:32,519 - INFO -   fpce_graph.txt (71 bytes)
+2025-08-09 16:55:32,519 - INFO - Pipeline completed successfully!
+2025-08-09 17:00:04,836 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 17:00:04,836 - INFO - Tool verification completed
+2025-08-09 17:00:04,837 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein
+2025-08-09 17:00:04,837 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.grh to edges format
+2025-08-09 17:00:04,900 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.edges
+2025-08-09 17:00:04,900 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.edges
+2025-08-09 17:00:04,998 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.clean
+2025-08-09 17:00:04,998 - INFO - Processed 81044 unique edges, max node ID: 43465
+2025-08-09 17:00:05,003 - INFO - Internal binary conversion of H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.clean
+2025-08-09 17:00:05,078 - INFO - Successfully created binary files: b_adj.bin and b_degree.bin
+2025-08-09 17:00:05,078 - INFO - Graph: 43466 nodes, 81044 edges
+2025-08-09 17:00:05,082 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.grh
+2025-08-09 17:00:05,082 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein
+2025-08-09 17:00:05,082 - INFO - Generated files:
+2025-08-09 17:00:05,083 - INFO -   b_adj.bin (822220 bytes)
+2025-08-09 17:00:05,083 - INFO -   b_degree.bin (173868 bytes)
+2025-08-09 17:00:05,083 - INFO -   Protein.clean (1011486 bytes)
+2025-08-09 17:00:05,083 - INFO -   Protein.edges (1011484 bytes)
+2025-08-09 17:00:05,083 - INFO -   Protein.grh (973906 bytes)
+2025-08-09 17:00:05,083 - INFO - Pipeline completed successfully!
+2025-08-09 17:34:26,990 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 17:34:26,991 - INFO - Tool verification completed
+2025-08-09 17:34:26,991 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph
+2025-08-09 17:34:26,992 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.grh to edges format
+2025-08-09 17:34:26,992 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.edges
+2025-08-09 17:34:26,992 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.edges
+2025-08-09 17:34:26,998 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.clean
+2025-08-09 17:34:26,999 - INFO - Processed 14 unique edges, max node ID: 12
+2025-08-09 17:34:26,999 - INFO - Internal binary conversion of H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.clean
+2025-08-09 17:34:27,001 - INFO - Successfully created binary files: b_adj.bin and b_degree.bin
+2025-08-09 17:34:27,001 - INFO - Graph: 13 nodes, 14 edges
+2025-08-09 17:34:27,002 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph\fpce_graph.grh
+2025-08-09 17:34:27,002 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\fpce_graph
+2025-08-09 17:34:27,004 - INFO - Generated files:
+2025-08-09 17:34:27,006 - INFO -   b_adj.bin (168 bytes)
+2025-08-09 17:34:27,007 - INFO -   b_degree.bin (56 bytes)
+2025-08-09 17:34:27,007 - INFO -   cliques_K1 (0 bytes)
+2025-08-09 17:34:27,009 - INFO -   cliques_K2 (74 bytes)
+2025-08-09 17:34:27,011 - INFO -   cliques_K3 (14 bytes)
+2025-08-09 17:34:27,012 - INFO -   cliques_K4 (0 bytes)
+2025-08-09 17:34:27,013 - INFO -   fpce_graph.clean (76 bytes)
+2025-08-09 17:34:27,014 - INFO -   fpce_graph.edges (74 bytes)
+2025-08-09 17:34:27,014 - INFO -   fpce_graph.grh (71 bytes)
+2025-08-09 17:34:27,015 - INFO -   fpce_graph.txt (71 bytes)
+2025-08-09 17:34:27,016 - INFO - Pipeline completed successfully!
+2025-08-09 17:45:01,327 - INFO - Tool verification completed
+2025-08-09 17:45:01,329 - INFO - Processing /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh in directory /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph
+2025-08-09 17:45:01,329 - INFO - Converting /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh to edges format
+2025-08-09 17:45:01,334 - INFO - Successfully converted to /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.edges
+2025-08-09 17:45:01,335 - INFO - Cleaning edges file /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.edges using BBkC
+2025-08-09 17:45:01,335 - INFO - Running command: /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/BBkC p /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.edges
+2025-08-09 17:45:01,346 - INFO - Successfully created clean file: /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.clean
+2025-08-09 17:45:01,347 - INFO - Converting /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.clean to binary format using native edgelist2binary
+2025-08-09 17:45:01,348 - INFO - Running command: /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph fpce_graph.clean (cwd=/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph)
+2025-08-09 17:45:01,360 - INFO - Successfully created binary files using native edgelist2binary
+2025-08-09 17:45:01,360 - INFO - Successfully processed /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh
+2025-08-09 17:45:01,363 - INFO - Output directory: /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph
+2025-08-09 17:45:01,363 - INFO - Generated files:
+2025-08-09 17:45:01,365 - INFO -   b_adj.bin (112 bytes)
+2025-08-09 17:45:01,367 - INFO -   b_degree.bin (64 bytes)
+2025-08-09 17:45:01,368 - INFO -   cliques_K1 (0 bytes)
+2025-08-09 17:45:01,370 - INFO -   cliques_K2 (74 bytes)
+2025-08-09 17:45:01,372 - INFO -   cliques_K3 (14 bytes)
+2025-08-09 17:45:01,375 - INFO -   cliques_K4 (0 bytes)
+2025-08-09 17:45:01,377 - INFO -   fpce_graph.clean (60 bytes)
+2025-08-09 17:45:01,379 - INFO -   fpce_graph.edges (60 bytes)
+2025-08-09 17:45:01,380 - INFO -   fpce_graph.grh (71 bytes)
+2025-08-09 17:45:01,383 - INFO -   fpce_graph.txt (71 bytes)
+2025-08-09 17:45:01,383 - INFO - Pipeline completed successfully!
+2025-08-09 17:47:11,016 - INFO - Tool verification completed
+2025-08-09 17:47:11,018 - INFO - Processing /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein/Protein.grh in directory /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein
+2025-08-09 17:47:11,019 - INFO - Converting /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein/Protein.grh to edges format
+2025-08-09 17:47:11,114 - INFO - Successfully converted to /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein/Protein.edges
+2025-08-09 17:47:11,114 - INFO - Cleaning edges file /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein/Protein.edges using BBkC
+2025-08-09 17:47:11,115 - INFO - Running command: /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/BBkC p /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein/Protein.edges
+2025-08-09 17:47:11,493 - INFO - Successfully created clean file: /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein/Protein.clean
+2025-08-09 17:47:11,494 - INFO - Converting /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein/Protein.clean to binary format using native edgelist2binary
+2025-08-09 17:47:11,494 - INFO - Running command: /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein Protein.clean (cwd=/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein)
+2025-08-09 17:47:11,691 - INFO - Successfully created binary files using native edgelist2binary
+2025-08-09 17:47:11,692 - INFO - Successfully processed /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein/Protein.grh
+2025-08-09 17:47:11,693 - INFO - Output directory: /mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein
+2025-08-09 17:47:11,694 - INFO - Generated files:
+2025-08-09 17:47:11,695 - INFO -   Protein.clean (930440 bytes)
+2025-08-09 17:47:11,697 - INFO -   Protein.edges (930440 bytes)
+2025-08-09 17:47:11,699 - INFO -   Protein.grh (973906 bytes)
+2025-08-09 17:47:11,700 - INFO -   b_adj.bin (648352 bytes)
+2025-08-09 17:47:11,702 - INFO -   b_degree.bin (173876 bytes)
+2025-08-09 17:47:11,702 - INFO - Pipeline completed successfully!
+2025-08-09 19:46:09,633 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 19:46:09,634 - INFO - Tool verification completed
+2025-08-09 19:46:09,634 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein
+2025-08-09 19:46:09,634 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.grh to edges format
+2025-08-09 19:46:09,702 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.edges
+2025-08-09 19:46:09,703 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.edges
+2025-08-09 19:46:09,839 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.clean
+2025-08-09 19:46:09,840 - INFO - Processed 81044 unique edges, max node ID: 43465
+2025-08-09 19:46:09,861 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein Protein.clean
+2025-08-09 19:46:10,210 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-09 19:46:10,211 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.grh
+2025-08-09 19:46:10,211 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein
+2025-08-09 19:46:10,211 - INFO - Generated files:
+2025-08-09 19:46:10,211 - INFO -   b_adj.bin (648352 bytes)
+2025-08-09 19:46:10,212 - INFO -   b_degree.bin (173876 bytes)
+2025-08-09 19:46:10,212 - INFO -   Protein.clean (1011486 bytes)
+2025-08-09 19:46:10,212 - INFO -   Protein.edges (1011484 bytes)
+2025-08-09 19:46:10,212 - INFO -   Protein.grh (973906 bytes)
+2025-08-09 19:46:10,213 - INFO - Pipeline completed successfully!
+2025-08-09 20:05:30,955 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 20:05:30,955 - INFO - Tool verification completed
+2025-08-09 20:05:30,956 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus
+2025-08-09 20:05:30,956 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh to edges format
+2025-08-09 20:05:30,999 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.edges
+2025-08-09 20:05:30,999 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.edges
+2025-08-09 20:05:31,069 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.clean
+2025-08-09 20:05:31,069 - INFO - Processed 39194 unique edges, max node ID: 23628
+2025-08-09 20:05:31,074 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/gplus gplus.clean
+2025-08-09 20:05:31,262 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-09 20:05:31,262 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh
+2025-08-09 20:05:31,263 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus
+2025-08-09 20:05:31,263 - INFO - Generated files:
+2025-08-09 20:05:31,263 - INFO -   b_adj.bin (313552 bytes)
+2025-08-09 20:05:31,263 - INFO -   b_degree.bin (94524 bytes)
+2025-08-09 20:05:31,264 - INFO -   gplus.clean (452501 bytes)
+2025-08-09 20:05:31,264 - INFO -   gplus.edges (452499 bytes)
+2025-08-09 20:05:31,264 - INFO -   gplus.grh (436936 bytes)
+2025-08-09 20:05:31,265 - INFO - Pipeline completed successfully!
+2025-08-09 20:05:59,092 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 20:05:59,093 - INFO - Tool verification completed
+2025-08-09 20:05:59,093 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech
+2025-08-09 20:05:59,093 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.grh to edges format
+2025-08-09 20:05:59,168 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.edges
+2025-08-09 20:05:59,168 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.edges
+2025-08-09 20:05:59,308 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.clean
+2025-08-09 20:05:59,308 - INFO - Processed 85123 unique edges, max node ID: 40163
+2025-08-09 20:05:59,324 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/tech tech.clean
+2025-08-09 20:05:59,658 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-09 20:05:59,658 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.grh
+2025-08-09 20:05:59,658 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech
+2025-08-09 20:05:59,658 - INFO - Generated files:
+2025-08-09 20:05:59,659 - INFO -   b_adj.bin (680984 bytes)
+2025-08-09 20:05:59,659 - INFO -   b_degree.bin (160668 bytes)
+2025-08-09 20:05:59,659 - INFO -   tech.clean (1058372 bytes)
+2025-08-09 20:05:59,659 - INFO -   tech.edges (1058370 bytes)
+2025-08-09 20:05:59,659 - INFO -   tech.grh (1013411 bytes)
+2025-08-09 20:05:59,660 - INFO - Pipeline completed successfully!
+2025-08-09 22:12:35,974 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 22:12:35,974 - INFO - Tool verification completed
+2025-08-09 22:12:35,975 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10
+2025-08-09 22:12:35,975 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.grh to edges format
+2025-08-09 22:12:35,989 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.edges
+2025-08-09 22:12:35,989 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.edges
+2025-08-09 22:12:36,010 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.clean
+2025-08-09 22:12:36,011 - INFO - Processed 9601 unique edges, max node ID: 999
+2025-08-09 22:12:36,012 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/scale_free_graph_m_10 scale_free_graph_m_10.clean
+2025-08-09 22:12:36,146 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-09 22:12:36,147 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.grh
+2025-08-09 22:12:36,147 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10
+2025-08-09 22:12:36,148 - INFO - Generated files:
+2025-08-09 22:12:36,148 - INFO -   b_adj.bin (76808 bytes)
+2025-08-09 22:12:36,148 - INFO -   b_degree.bin (4012 bytes)
+2025-08-09 22:12:36,148 - INFO -   scale_free_graph_m_10.clean (80563 bytes)
+2025-08-09 22:12:36,148 - INFO -   scale_free_graph_m_10.edges (80561 bytes)
+2025-08-09 22:12:36,149 - INFO -   scale_free_graph_m_10.grh (38798 bytes)
+2025-08-09 22:12:36,149 - INFO - Pipeline completed successfully!
+2025-08-09 23:17:53,835 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-09 23:17:53,835 - INFO - Tool verification completed
+2025-08-09 23:17:53,836 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10
+2025-08-09 23:17:53,836 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.grh to edges format
+2025-08-09 23:17:53,842 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.edges
+2025-08-09 23:17:53,842 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.edges
+2025-08-09 23:17:53,863 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/scale_free_graph_m_10 scale_free_graph_m_10.clean
+2025-08-09 23:17:53,951 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-09 23:17:53,952 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.clean
+2025-08-09 23:17:53,952 - INFO - Processed 9601 unique edges, max node ID: 999
+2025-08-09 23:17:53,953 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/scale_free_graph_m_10 scale_free_graph_m_10.clean
+2025-08-09 23:17:54,029 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-09 23:17:54,029 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10\scale_free_graph_m_10.grh
+2025-08-09 23:17:54,029 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_10
+2025-08-09 23:17:54,029 - INFO - Generated files:
+2025-08-09 23:17:54,029 - INFO -   b_adj.bin (76808 bytes)
+2025-08-09 23:17:54,029 - INFO -   b_degree.bin (4012 bytes)
+2025-08-09 23:17:54,030 - INFO -   cliques_K3 (65803 bytes)
+2025-08-09 23:17:54,030 - INFO -   scale_free_graph_m_10.clean (80563 bytes)
+2025-08-09 23:17:54,030 - INFO -   scale_free_graph_m_10.edges (80561 bytes)
+2025-08-09 23:17:54,030 - INFO -   scale_free_graph_m_10.grh (38798 bytes)
+2025-08-09 23:17:54,030 - INFO - Pipeline completed successfully!
+2025-08-10 14:38:01,600 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-10 14:38:01,601 - INFO - Tool verification completed
+2025-08-10 14:38:01,601 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein
+2025-08-10 14:38:01,601 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.grh to edges format
+2025-08-10 14:38:01,665 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.edges
+2025-08-10 14:38:01,666 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.edges
+2025-08-10 14:38:01,783 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein Protein.clean
+2025-08-10 14:38:02,109 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-10 14:38:02,109 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.clean
+2025-08-10 14:38:02,109 - INFO - Processed 81044 unique edges, max node ID: 43465
+2025-08-10 14:38:02,122 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/protein Protein.clean
+2025-08-10 14:38:02,379 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-10 14:38:02,379 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein\Protein.grh
+2025-08-10 14:38:02,379 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\protein
+2025-08-10 14:38:02,379 - INFO - Generated files:
+2025-08-10 14:38:02,380 - INFO -   b_adj.bin (648352 bytes)
+2025-08-10 14:38:02,380 - INFO -   b_degree.bin (173876 bytes)
+2025-08-10 14:38:02,380 - INFO -   cliques_K2 (1011484 bytes)
+2025-08-10 14:38:02,380 - INFO -   cliques_K4 (84619 bytes)
+2025-08-10 14:38:02,380 - INFO -   Protein.clean (1011486 bytes)
+2025-08-10 14:38:02,381 - INFO -   Protein.edges (1011484 bytes)
+2025-08-10 14:38:02,381 - INFO -   Protein.grh (973906 bytes)
+2025-08-10 14:38:02,381 - INFO - Pipeline completed successfully!
+2025-08-10 23:11:01,448 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-10 23:11:01,450 - INFO - Tool verification completed
+2025-08-10 23:11:01,451 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech
+2025-08-10 23:11:01,451 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.grh to edges format
+2025-08-10 23:11:01,526 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.edges
+2025-08-10 23:11:01,526 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.edges
+2025-08-10 23:11:01,676 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/tech tech.clean
+2025-08-10 23:11:02,093 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-10 23:11:02,093 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.clean
+2025-08-10 23:11:02,093 - INFO - Processed 85123 unique edges, max node ID: 40163
+2025-08-10 23:11:02,108 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/tech tech.clean
+2025-08-10 23:11:02,446 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-10 23:11:02,447 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech\tech.grh
+2025-08-10 23:11:02,447 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\tech
+2025-08-10 23:11:02,447 - INFO - Generated files:
+2025-08-10 23:11:02,448 - INFO -   b_adj.bin (680984 bytes)
+2025-08-10 23:11:02,448 - INFO -   b_degree.bin (160668 bytes)
+2025-08-10 23:11:02,449 - INFO -   tech.clean (1058372 bytes)
+2025-08-10 23:11:02,449 - INFO -   tech.edges (1058370 bytes)
+2025-08-10 23:11:02,449 - INFO -   tech.grh (1013411 bytes)
+2025-08-10 23:11:02,449 - INFO - Pipeline completed successfully!
+2025-08-10 23:11:25,463 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-10 23:11:25,464 - INFO - Tool verification completed
+2025-08-10 23:11:25,464 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus
+2025-08-10 23:11:25,464 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh to edges format
+2025-08-10 23:11:25,498 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.edges
+2025-08-10 23:11:25,498 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.edges
+2025-08-10 23:11:25,579 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/gplus gplus.clean
+2025-08-10 23:11:25,812 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-10 23:11:25,812 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.clean
+2025-08-10 23:11:25,813 - INFO - Processed 39194 unique edges, max node ID: 23628
+2025-08-10 23:11:25,819 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/gplus gplus.clean
+2025-08-10 23:11:26,007 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-10 23:11:26,007 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh
+2025-08-10 23:11:26,007 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus
+2025-08-10 23:11:26,007 - INFO - Generated files:
+2025-08-10 23:11:26,007 - INFO -   b_adj.bin (313552 bytes)
+2025-08-10 23:11:26,008 - INFO -   b_degree.bin (94524 bytes)
+2025-08-10 23:11:26,008 - INFO -   gplus.clean (452501 bytes)
+2025-08-10 23:11:26,008 - INFO -   gplus.edges (452499 bytes)
+2025-08-10 23:11:26,008 - INFO -   gplus.grh (436936 bytes)
+2025-08-10 23:11:26,008 - INFO - Pipeline completed successfully!
+2025-08-10 23:50:20,568 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-10 23:50:20,569 - INFO - Tool verification completed
+2025-08-10 23:50:20,569 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_50\scale_free_graph_m_50.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_50
+2025-08-10 23:50:20,569 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_50\scale_free_graph_m_50.grh to edges format
+2025-08-10 23:50:20,593 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_50\scale_free_graph_m_50.edges
+2025-08-10 23:50:20,593 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_50\scale_free_graph_m_50.edges
+2025-08-10 23:50:20,659 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/scale_free_graph_m_50 scale_free_graph_m_50.clean
+2025-08-10 23:50:20,834 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-10 23:50:20,834 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_50\scale_free_graph_m_50.clean
+2025-08-10 23:50:20,834 - INFO - Processed 41781 unique edges, max node ID: 999
+2025-08-10 23:50:20,842 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/scale_free_graph_m_50 scale_free_graph_m_50.clean
+2025-08-10 23:50:20,987 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-10 23:50:20,987 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_50\scale_free_graph_m_50.grh
+2025-08-10 23:50:20,987 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\scale_free_graph_m_50
+2025-08-10 23:50:20,987 - INFO - Generated files:
+2025-08-10 23:50:20,988 - INFO -   b_adj.bin (334248 bytes)
+2025-08-10 23:50:20,988 - INFO -   b_degree.bin (4012 bytes)
+2025-08-10 23:50:20,988 - INFO -   scale_free_graph_m_50.clean (359440 bytes)
+2025-08-10 23:50:20,988 - INFO -   scale_free_graph_m_50.edges (359438 bytes)
+2025-08-10 23:50:20,988 - INFO -   scale_free_graph_m_50.grh (166871 bytes)
+2025-08-10 23:50:20,988 - INFO - Pipeline completed successfully!
+2025-08-11 00:00:13,952 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-11 00:00:13,952 - INFO - Tool verification completed
+2025-08-11 00:00:13,953 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus
+2025-08-11 00:00:13,953 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh to edges format
+2025-08-11 00:00:13,986 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.edges
+2025-08-11 00:00:13,987 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.edges
+2025-08-11 00:00:14,064 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/gplus gplus.clean
+2025-08-11 00:00:14,264 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-11 00:00:14,265 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.clean
+2025-08-11 00:00:14,265 - INFO - Processed 39194 unique edges, max node ID: 23628
+2025-08-11 00:00:14,272 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/gplus gplus.clean
+2025-08-11 00:00:14,449 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-11 00:00:14,450 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh
+2025-08-11 00:00:14,450 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus
+2025-08-11 00:00:14,450 - INFO - Generated files:
+2025-08-11 00:00:14,451 - INFO -   b_adj.bin (313552 bytes)
+2025-08-11 00:00:14,451 - INFO -   b_degree.bin (94524 bytes)
+2025-08-11 00:00:14,451 - INFO -   cliques_K4 (178539 bytes)
+2025-08-11 00:00:14,451 - INFO -   cliques_K6 (14400 bytes)
+2025-08-11 00:00:14,452 - INFO -   gplus.clean (452501 bytes)
+2025-08-11 00:00:14,452 - INFO -   gplus.edges (452499 bytes)
+2025-08-11 00:00:14,452 - INFO -   gplus.grh (436936 bytes)
+2025-08-11 00:00:14,452 - INFO - Pipeline completed successfully!

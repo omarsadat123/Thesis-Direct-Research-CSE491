@@ -329,15 +329,15 @@ void EBBkC_Graph_t::truss_decompose(const char *dir) {
         }
 
         // DEBUG: Print edge filtering results
-        printf("Edge filtering: Total=%ld, Kept=%d, Skipped=%d\n", g.m/2, kept_edges, skipped_edges);
-        printf("Edge | Truss | Rank\n");
-        for (int i = 0; i < e_size; i++) {
-            printf("%d-%d | %d | %d\n", 
-                new2old[edges[i].s], 
-                new2old[edges[i].t],
-                g.edge_truss[i],  // Truss number
-                rank[i]);         // Edge rank
-        }
+        //printf("Edge filtering: Total=%ld, Kept=%d, Skipped=%d\n", g.m/2, kept_edges, skipped_edges);
+        //printf("Edge | Truss | Rank\n");
+        // for (int i = 0; i < e_size; i++) {
+        //     printf("%d-%d | %d | %d\n", 
+        //         new2old[edges[i].s], 
+        //         new2old[edges[i].t],
+        //         g.edge_truss[i],  // Truss number
+        //         rank[i]);         // Edge rank
+        // }
 
         C = new int *[e_size];
         C_size = new int[e_size];
@@ -378,10 +378,10 @@ void EBBkC_Graph_t::truss_decompose(const char *dir) {
 //The branch function implements the core edge-oriented branching strategy. It takes an edge e from the main, truss-ordered graph and generates a self-contained subproblem g for the recursive algorithm to solve. This also completes the hybrid ordering by applying a local color-based ordering.
 void EBBkC_Graph_t::branch(int e, EBBkC_Graph_t* g) {
     // DEBUG: Print edge being processed
-    printf("Branching on edge %d: (%d->%d) [Main Graph IDs: %d,%d]\n",
-           e, edges[e].s, edges[e].t, 
-           new2old[edges[e].s], new2old[edges[e].t]);
-    printf("T_size[%d] = %d\n", e, T_size[e]);
+    // printf("Branching on edge %d: (%d->%d) [Main Graph IDs: %d,%d]\n",
+    //        e, edges[e].s, edges[e].t, 
+    //        new2old[edges[e].s], new2old[edges[e].t]);
+    // printf("T_size[%d] = %d\n", e, T_size[e]);
     int c, i, j, k, p, e_, u, v, w, s, t, end, dist, l = K;
     int *old2new = new int[v_size]; //a temporary mapping (old2new) from the main graph's vertex IDs to the new, smaller IDs of the subproblem, v_size = total nodes in G, so large enough to map any vertex from the main graph.
 
@@ -424,12 +424,12 @@ void EBBkC_Graph_t::branch(int e, EBBkC_Graph_t* g) {
     }
 
     // DEBUG: Print subgraph size
-    printf("Subgraph created: vertices=%d, edges=%d\n", g->v_size, g->e_size);
-    if (g->v_size > 0) {
-        for(int i=0; i<g->v_size; i++){
-            printf("Sample subgraph vertex: %d -> Original ID: %d\n", i, g->new2old[i]);
-        }
-    }
+    // printf("Subgraph created: vertices=%d, edges=%d\n", g->v_size, g->e_size);
+    // if (g->v_size > 0) {
+    //     for(int i=0; i<g->v_size; i++){
+    //         printf("Sample subgraph vertex: %d -> Original ID: %d\n", i, g->new2old[i]);
+    //     }
+    // }
 
     // u0, u1 are the endpoints of the e-th edge in the parent graph
     g->branch_ends.resize(K+1);
@@ -527,23 +527,23 @@ void EBBkC_Graph_t::branch(int e, EBBkC_Graph_t* g) {
 
 void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
     // DEBUG: Print current recursion level
-    printf("Entering EBBkC_plus_plus: level=%d, |V|=%d, |E|=%d\n", l, sub_v_size[l], sub_e_size[l]);
+    //printf("Entering EBBkC_plus_plus: level=%d, |V|=%d, |E|=%d\n", l, sub_v_size[l], sub_e_size[l]);
     int c, i, j, k, p, e, e_, u, v, w, s, t, end, dist;
 
     if (sub_v_size[l] < l || sub_e_size[l] < l * (l - 1) / 2){
-        printf("Pruning at level %d: graph too small\n", l);
+        //printf("Pruning at level %d: graph too small\n", l);
         return;
     }  // pruning check to see if the subproblem is large enough to contain an l-clique?
 
     if (K == 3) { // if the target clique size is 3, the number of cliques is simply the number of vertices in the subproblem
         // DEBUG: Print found triangles
-        printf("K=3 base: Found %d triangles\n", sub_v_size[l]);
+        //printf("K=3 base: Found %d triangles\n", sub_v_size[l]);
         // every vertex w in sub_v[l] completes a triangle {u0,u1,w}
         auto &ends = branch_ends[K];
         for (int idx = 0; idx < sub_v_size[l]; idx++) {
             int w = sub_v[l][idx];                       
             int orig_w = this->new2old[w];  // Already original ID
-            printf("Storing K3: (%d,%d,%d)\n", ends.first, ends.second, orig_w);
+            //printf("Storing K3: (%d,%d,%d)\n", ends.first, ends.second, orig_w);
             cliques_vec.push_back({ends.first, ends.second, orig_w});
             (*cliques)++;
         }
@@ -552,7 +552,7 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
 
     if (K == 4) { // if the target clique size is 4, the number of cliques is simply the number of edges in the subproblem
         // DEBUG: Print found 4-cliques
-        printf("K=4 base: Found %d 4-cliques\n", sub_e_size[l]);
+        //printf("K=4 base: Found %d 4-cliques\n", sub_e_size[l]);
         // each edge e in sub_e[l] completes a 4-clique {u0,u1,u2,u3}
         auto &ends2 = branch_ends[K];        // contains {u0,u1}
         for (int idx = 0; idx < sub_e_size[l]; idx++) {
@@ -560,7 +560,7 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
             int a = edges[e].s, b = edges[e].t;
             int orig_a = this->new2old[a];  // Already original
             int orig_b = this->new2old[b];  // Already original
-            printf("Storing K4: (%d,%d,%d,%d)\n", ends2.first, ends2.second, orig_a, orig_b);
+            //printf("Storing K4: (%d,%d,%d,%d)\n", ends2.first, ends2.second, orig_a, orig_b);
             // record and count
             //cliques_vec.push_back({ ends2.first, ends2.second, a, b });
             cliques_vec.push_back({ends2.first, ends2.second, orig_a, orig_b});
@@ -621,7 +621,7 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
     }
 
     if (can_terminate(l, cliques)) { // check if the current subgraph is a "t-plex" (a very dense graph). If so, it uses a combinatorial method to count cliques, which is much faster than further recursion.
-        printf("Early termination at level %d\n", l);
+        //printf("Early termination at level %d\n", l);
         return;
     }
 
@@ -680,7 +680,7 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
         }
     }
     // DEBUG: After recursion
-    printf("Exiting EBBkC_plus_plus at level %d\n", l);
+    //printf("Exiting EBBkC_plus_plus at level %d\n", l);
 }
 
 void EBBkC_Graph_t::EBBkC_Comb_list(int *list, int  list_size, int  start, int  picked, int  k, unsigned long long *cliques) {

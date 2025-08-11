@@ -1,4 +1,44 @@
 cd "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main"
 
 g++ -O3 dense-pce.cpp -o dense-pce
-./dense-pce "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh" --minimum 4 --theta 0.8
+./dense-pce "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh" --minimum 3 --theta 0.6
+./dense-pce "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/synth-graphs-1000/scale_free_graph_m_10.grh" --minimum 5 --theta 0.8
+
+g++ -O3 dense-pce-mod-edge.cpp -o dense-pce-mod-edge
+./dense-pce-mod-edge "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh" --minimum 5 --theta 0.8
+
+g++ -O3 dense-pce-mod.cpp -o dense-pce-mod
+./dense-pce-mod "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh" --minimum 3 --theta 0.6
+./dense-pce-mod "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/Protein/Protein.grh" --minimum 4 --theta 0.9
+./dense-pce-mod "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/scale_free_graph_m_10/scale_free_graph_m_10.grh" --minimum 6 --theta 0.9
+
+
+
+./pce M -l 3 "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh" 0.6
+./pce M -l 4 "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/Protein/Protein.grh" 0.8
+./pce M -l 6 "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/scale_free_graph_m_10/scale_free_graph_m_10.grh" 0.9
+./pce M -l 10 "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/tech/tech.grh" 0.9
+./pce M -l 10 "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/gplus/gplus.grh" 0.9
+
+
+cd FPCE/code/FPCE
+./fpce M -l 3 "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh" 0.6
+./fpce M -l 4 "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/Protein/Protein.grh" 0.8
+./fpce M -l 6 "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/scale_free_graph_m_10/scale_free_graph_m_10.grh" 0.9
+./fpce M -l 10 "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/tech/tech.grh" 0.9
+./fpce M -l 10 "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/gplus/gplus.grh" 0.9
+
+./dense-pce-mod-edge-order "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh" --minimum 3 --theta 0.6
+./dense-pce-mod-edge-order "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/Protein/Protein.grh" --minimum 4 --theta 0.8
+./dense-pce-mod-edge-order "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/scale_free_graph_m_10/scale_free_graph_m_10.grh" --minimum 6 --theta 0.9
+./dense-pce-mod-edge-order "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/tech/tech.grh" --minimum 10 --theta 0.9
+./dense-pce-mod-edge-order "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/gplus/gplus.grh" --minimum 10 --theta 0.9
+
+
+
+g++ -O3 dense-pce-edge.cpp -o dense-pce-edge
+./dense-pce-edge "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh" --minimum 5 --theta 0.8
+./BBkC p /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/fpce_graph/fpce_graph.grh
+
+cd "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main"
+./pce C -l 5 "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/synth-graphs-1000/scale_free_graph_m_10.grh" 0.8

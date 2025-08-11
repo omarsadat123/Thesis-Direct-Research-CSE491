@@ -8,8 +8,6 @@
 #include <limits>
 #include <stack>
 #include <numeric>
-#include <set>
-#include <cmath>
 
 
 
@@ -100,8 +98,8 @@ public:
 
 class PseudoCliqueEnumerator {
 public:
-    PseudoCliqueEnumerator(Graph& graph, float theta = 1.0, int min_size = 1, int max_size = -1, bool maximal_only = false)
-        : graph(graph), theta(theta), min_size(min_size), maximal_only(maximal_only) {
+    PseudoCliqueEnumerator(Graph& graph, float theta = 1.0, int min_size = 1, int max_size = -1)
+        : graph(graph), theta(theta), min_size(min_size) {
         
         total_nodes = graph.adj_map.size(); 
 
@@ -123,7 +121,7 @@ public:
         }
         std::vector<int> keys(graph.total_nodes);
         std::iota(keys.begin(), keys.end(), 0);
-
+        int pruned = 0;
 
         neighbors_and_P[0] = keys;
 
@@ -184,34 +182,11 @@ public:
     int get_iter_count(){
         return iter_count;
     };
+    int get_pruning_count(){
+        return pruning;
+    };
 
 private:
-    // Collect current pseudo-clique P as a sorted vector
-    std::vector<int> collect_current_pseudo_clique() const {
-        std::vector<int> current_p;
-        current_p.reserve(total_nodes_in_P);
-        for (const auto& bucket : inside_P) {
-            if (!bucket.empty()) {
-                current_p.insert(current_p.end(), bucket.begin(), bucket.end());
-            }
-        }
-        std::sort(current_p.begin(), current_p.end());
-        return current_p;
-    }
-
-    // Maximality check following pce.c logic:
-    // No vertex outside P has degree into P >= ceil(theta_P)
-    bool is_current_maximal() const {
-        int min_add_deg = static_cast<int>(std::ceil(theta_P));
-        if (min_add_deg < 0) min_add_deg = 0;
-        // Compare histogram counts: all vertices vs vertices in P
-        for (int d = min_add_deg; d <= total_nodes_in_P; ++d) {
-            size_t occ_num = (d >= 0 && d < static_cast<int>(neighbors_and_P.size())) ? neighbors_and_P[d].size() : 0;
-            size_t in_p_num = (d >= 0 && d < static_cast<int>(inside_P.size())) ? inside_P[d].size() : 0;
-            if (occ_num > in_p_num) return false; // there exists an outside vertex extendable
-        }
-        return true;
-    }
 
 
     Graph& graph;
@@ -223,7 +198,7 @@ private:
     int total_nodes_in_P;
     int total_edges_in_P;
     int iter_count = 0;
-    bool maximal_only = false;
+    int pruning = 0;
 
     std::stack<int> children;
 
@@ -235,10 +210,155 @@ private:
     // std::unordered_map<int, TrackInfo> tracks;
     std::vector<std::vector<int> > tracks;
 
-    // To avoid duplicate reporting of maximal pseudo-cliques
-    std::set<std::vector<int>> reported_maximal_pseudo_cliques;
+    std::vector<int> compute_core_numbers_bin(const Graph& graph) {
+    unsigned int n = graph.adj_map.size();
+    std::vector<int> core(n);
+    std::vector<unsigned int> vert(n), pos(n), deg(n);
+    unsigned int md = 0;
 
+    // Calculate degrees and find maximum degree
+    for (unsigned int i = 0; i < n; i++) {
+        deg[i] = graph.adj_map[i].size();
+        if (deg[i] > md) {
+            md = deg[i];
+        }
+    }
+
+    // Initialize bin array
+    std::vector<unsigned int> bin(md + 1, 0);
     
+    // Count vertices of each degree
+    for (unsigned int v = 0; v < n; v++) {
+        bin[deg[v]]++;
+    }
+
+    // Compute starting positions in bins
+    unsigned int start = 0;
+    for (unsigned int d = 0; d <= md; d++) {
+        unsigned int num = bin[d];
+        bin[d] = start;
+        start += num;
+    }
+
+    // Place vertices in vert array by degree
+    for (unsigned int v = 0; v < n; v++) {
+        pos[v] = bin[deg[v]];
+        vert[pos[v]] = v;
+        bin[deg[v]]++;
+    }
+
+    // Restore bin starting positions
+    for (int d = md; d >= 1; d--) {
+        bin[d] = bin[d-1];
+    }
+    bin[0] = 0;
+
+    // Main core computation
+    for (unsigned int i = 0; i < n; i++) {
+        unsigned int v = vert[i];
+        core[v] = deg[v];
+        
+        // Process neighbors
+        for (const auto& neighbor : graph.adj_map[v]) {
+            unsigned int u = neighbor.first;
+            if (deg[u] > deg[v]) {
+                unsigned int du = deg[u];
+                unsigned int pu = pos[u];
+                unsigned int pw = bin[du];
+                unsigned int w = vert[pw];
+                
+                // Swap vertices if needed
+                if (u != w) {
+                    pos[u] = pw;
+                    vert[pu] = w;
+                    pos[w] = pu;
+                    vert[pw] = u;
+                }
+                
+                bin[du]++;
+                deg[u]--;
+            }
+        }
+    }
+
+    return core;
+}
+
+int get_coreness_of_vertex_set(const std::vector<int>& coreNumbers, const std::vector<int>& vertices) {
+    if (vertices.empty()) return -1;
+
+    int min_coreness = coreNumbers[vertices[0]];
+    for (int v : vertices) {
+        if (v < 0 || v >= (int)coreNumbers.size()) return -1;
+        if (coreNumbers[v] < min_coreness) min_coreness = coreNumbers[v];
+    }
+    return min_coreness;
+}
+
+    int get_minimum_degree_in_P() {
+    int min_deg = std::numeric_limits<int>::max();
+    bool found = false;
+
+    for (int v = 0; v < total_nodes; ++v) {
+        if (tracks[v][0]) { // vertex is inside P
+            min_deg = std::min(min_deg, tracks[v][1]);
+            found = true;
+        }
+    }
+
+    if (!found) return 0; // No vertices in P
+    return min_deg;
+}
+
+
+bool satisfies_edge_bound_lemma_6(int l_target) {
+    if (l_target <=total_nodes_in_P)  // If l_target is less than or equal to the current size of P
+    {
+        return true;
+    }
+    
+    int current_edges = total_edges_in_P;
+    int min_deg = get_minimum_degree_in_P();
+    double potential_new_edges = (l_target - total_nodes_in_P) * (min_deg + (l_target - total_nodes_in_P + 1) / 2.0);
+    double required_edges = theta * l_target * (l_target - 1) / 2.0;
+    return (current_edges + potential_new_edges) >= required_edges;
+}
+
+// Helper: gather all vertices in P using tracks only
+std::vector<int> get_vertices_in_P() {
+    std::vector<int> vertices_in_P;
+    for (int v = 0; v < total_nodes; ++v) {
+        if (tracks[v][0]) {
+            vertices_in_P.push_back(v);
+        }
+    }
+    return vertices_in_P;
+}
+
+bool satisfies_edge_bound_lemma_7(int l_target) {
+    int current_edges = total_edges_in_P;       // E[P]
+    int min_deg = get_minimum_degree_in_P();    // δ(P)
+    std::vector<int> coreNumbers = compute_core_numbers_bin(graph);  // compute core numbers once ideally!
+
+    std::vector<int> vertices_in_P = get_vertices_in_P();  // replaced inside_P_all here
+    int coreness_P = get_coreness_of_vertex_set(coreNumbers, vertices_in_P);  // c(P)
+
+    double tau_P = min_deg + 0.5; // δ(P) + 1/2
+    double eta_P = std::min(static_cast<double>(coreness_P), static_cast<double>(min_deg + l_target - total_nodes_in_P));
+
+    double lhs = theta * l_target * (l_target - 1) / 2.0; // θ * ℓ(ℓ-1)/2
+    double rhs;
+
+    if (coreness_P == min_deg) {
+        // First case
+        rhs = current_edges + (l_target - total_nodes_in_P) * min_deg;
+    } else {
+        // Otherwise
+        rhs = current_edges + (l_target - total_nodes_in_P + tau_P) * eta_P - (min_deg + 1) * tau_P;
+    }
+
+    return lhs <= rhs;
+}
 
 
     // std::vector<int> get_keys(const std::vector<int, std::unordered_map<int, bool> >& map) {
@@ -313,8 +433,12 @@ void PseudoCliqueEnumerator::add_to_inside_P(int v) {
     set_theta_P();
 
     // Check if current set qualifies as a pseudo-clique
-    // In maximal-only mode, we defer counting until we know it's maximal (leaf state)
-    if (!maximal_only && total_nodes_in_P >= min_size) {
+    if (total_nodes_in_P >= min_size) {
+        // std::vector<int> pseudo_clique;
+        // for (const auto& nodes : inside_P) {
+        //     pseudo_clique.insert(pseudo_clique.end(), nodes.begin(), nodes.end());
+        // }
+        // pseudo_cliques.push_back(pseudo_clique);
         pseudo_cliques_count[total_nodes_in_P] += 1;
     }
 
@@ -369,9 +493,30 @@ void PseudoCliqueEnumerator::remove_from_inside_P(int v) {
 
         total_nodes_in_P--;
         set_theta_P();
+
 }
 
+
 void PseudoCliqueEnumerator::iter(int v) {
+
+    // FPCE Edge Bound Pruning
+    bool can_grow = false;
+    for (int l_target = total_nodes_in_P + 1; l_target <= max_size; ++l_target) {
+        if (satisfies_edge_bound_lemma_6(l_target) || satisfies_edge_bound_lemma_7(l_target)) {
+            can_grow = true;
+            break;
+        }
+    }
+    if (!can_grow){
+        std::cout << "Pruning set: ";
+        for (int i = 0; i < total_nodes; ++i) {
+            if (tracks[i][0]) std::cout << i << " ";
+        }
+        std::cout << std::endl;
+        pruning++;
+        return; // Prune this branch
+    }
+
     // std::cout << "iter: " << v << "\n";
     iter_count++;
     int c = 0;
@@ -443,18 +588,6 @@ void PseudoCliqueEnumerator::iter(int v) {
         
     }
 
-    // Maximality check following pce.c: report current P if maximal
-    if (maximal_only && total_nodes_in_P >= min_size && is_current_maximal()) {
-        std::vector<int> current_p = collect_current_pseudo_clique();
-        if (!current_p.empty()) {
-            if (reported_maximal_pseudo_cliques.insert(current_p).second) {
-                if (static_cast<size_t>(total_nodes_in_P) < pseudo_cliques_count.size()) {
-                    pseudo_cliques_count[total_nodes_in_P] += 1;
-                }
-            }
-        }
-    }
-
     // Iterate over children and add/remove them from inside_P
     while (c > 0) {
 
@@ -476,7 +609,6 @@ int main(int argc, char* argv[]) {
     double theta = 1.0;
     int minimum = 1;
     int maximum = std::numeric_limits<int>::max();
-    bool maximal_only = false;
 
     // Parse optional arguments
     for (int i = 2; i < argc; ++i) {
@@ -487,8 +619,6 @@ int main(int argc, char* argv[]) {
             minimum = std::stoi(argv[++i]);
         } else if (arg == "--maximum" && i + 1 < argc) {
             maximum = std::stoi(argv[++i]);
-        } else if (arg == "--maximal") {
-            maximal_only = true;
         }
     }
 
@@ -505,7 +635,7 @@ int main(int argc, char* argv[]) {
         maximum = graph.adj_map.size();
     }
 
-    PseudoCliqueEnumerator PC(graph, theta, minimum, maximum, maximal_only);
+    PseudoCliqueEnumerator PC(graph, theta, minimum, maximum);
     
     // std::vector<int> nodes;
     // for (const auto& pair : graph.adj_map) {
@@ -521,15 +651,17 @@ int main(int argc, char* argv[]) {
     }
 
     std::vector<int> pseudo_clique_counts = PC.get_pseudo_cliques_count();
-
+    
     // Print the clique sizes
-    std::cout << (maximal_only ? "Maximal pseudo-clique counts:" : "Pseudo-clique counts:") << std::endl;
-    for (size_t sz = 0; sz < pseudo_clique_counts.size(); ++sz) {
-        if (pseudo_clique_counts[sz] > 0) {
-            std::cout << "Size " << sz << ": " << pseudo_clique_counts[sz] << "\n";
-        }
+    std::cout << "Pseudo-clique counts:" << std::endl;
+    for (int sz = minimum; sz <= maximum && sz < (int)pseudo_clique_counts.size(); ++sz) {
+    if (pseudo_clique_counts[sz] > 0) {
+        std::cout << "Size " << sz << ": " << pseudo_clique_counts[sz] << "\n";
     }
+}
+
     std::cout << std::endl << "Total Iterations: " << PC.get_iter_count() << "\n";
+    std::cout  << "Pruning Count: " << PC.get_pruning_count() << "\n";
 
     return 0;
 }
