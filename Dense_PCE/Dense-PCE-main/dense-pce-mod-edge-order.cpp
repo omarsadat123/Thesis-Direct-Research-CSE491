@@ -961,31 +961,19 @@ int main(int argc, char* argv[]) {
      graph.compute_core_numbers();
 
      // NEW: do Order Bound here with the *real* degeneracy
-        int mu = graph.compute_order_bound(theta, graph.degeneracy);
-        if (minimum > mu) {
-            std::cout << "Pruning by Order Bound: No (l,θ)-pseudo-cliques exist as l ("
-                    << minimum << ") > μ (" << mu << ")\n";
-            return 0; // <-- bail out cleanly; don't call BBkC, don't construct PC
-        }
-        else{
-            std::cout<<"NOT Pruning by Order Bound: (l,θ)-pseudo-cliques exist as l (" << minimum << ") <= μ (" << mu << ")" << std::endl;
-        }
- 
-     if (maximum == std::numeric_limits<int>::max()) {
-         maximum = static_cast<int>(graph.adj_map.size());
-     }
- 
-     PseudoCliqueEnumerator PC(graph, theta, minimum, maximum, R);
-     // for (size_t node = 0; node < graph.adj_map.size(); ++node) {
-     //     PC.add_to_inside_P(node);
-     //     PC.remove_from_inside_P(node);
-     // }
-     PC.enumerate_with_turan();
-
+    int mu = graph.compute_order_bound(theta, graph.degeneracy);
+    if (minimum > mu) {
+        std::cout << "Pruning by Order Bound: No (l,θ)-pseudo-cliques exist as l ("
+                << minimum << ") > μ (" << mu << ")\n";
+        return 0; // <-- bail out cleanly; don't call BBkC, don't construct PC
+    }
+    else{
+        std::cout<<"NOT Pruning by Order Bound: (l,θ)-pseudo-cliques exist as l (" << minimum << ") <= μ (" << mu << ")" << std::endl;
+    }
 
     /* ------------------------------------------------------------------
-     * 5. Launch BBkC.
-     * ----------------------------------------------------------------*/
+    * 5. Launch BBkC.
+    * ----------------------------------------------------------------*/
     std::string cmd = "./BBkC e \"" + dir_path + "\" " + std::to_string(R) + " " + std::to_string(2);
     std::cout << "Executing: " << cmd << std::endl;
     int ret = system(cmd.c_str());
@@ -993,6 +981,33 @@ int main(int argc, char* argv[]) {
         std::cerr << "Error: BBkC failed to execute (return code: " << ret << ")" << std::endl;
         return 1;
     }
+
+    /* Optional: verify the seed file exists and is non-empty */
+    std::string clique_path = dir_path + "/cliques_K" + std::to_string(R);
+    {
+        std::ifstream fcheck(clique_path);
+        if (!fcheck.good()) {
+            std::cerr << "Error: expected seed file not found: " << clique_path << "\n";
+            return 1;
+        }
+        // quick non-empty check
+        std::string tmp;
+        if (!std::getline(fcheck, tmp)) {
+            std::cout << "BBkC produced zero " << R << "-cliques. Nothing to extend.\n";
+            return 0;
+        }
+    }
+ 
+    if (maximum == std::numeric_limits<int>::max()) {
+        maximum = static_cast<int>(graph.adj_map.size());
+    }
+ 
+     PseudoCliqueEnumerator PC(graph, theta, minimum, maximum, R);
+     // for (size_t node = 0; node < graph.adj_map.size(); ++node) {
+     //     PC.add_to_inside_P(node);
+     //     PC.remove_from_inside_P(node);
+     // }
+     PC.enumerate_with_turan();
 
     /* ------------------------------------------------------------------
      * 7. Display results.

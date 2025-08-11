@@ -143,6 +143,9 @@ void EBBkC_Graph_t::finalize_clique_output(const char* output_path) {
 }
 
 void EBBkC_Graph_t::build(bool sub) { //allocates and initializes all the data structures that the destructor deallocates. It takes a boolean sub to indicate if it's building a subproblem graph
+    auto build_start = std::chrono::high_resolution_clock::now();
+
+
     int i, k = K, node_size = v_size, link_size = e_size;
 
     is_sub = sub;
@@ -213,6 +216,13 @@ void EBBkC_Graph_t::build(bool sub) { //allocates and initializes all the data s
     lev = new int [node_size]();
     // lev[u]/loc[u] track positions and temporary markers during the recursive plex enumeration
     loc = new int [node_size];
+
+
+    auto build_end = std::chrono::high_resolution_clock::now();
+    auto build_duration = std::chrono::duration_cast<std::chrono::milliseconds>(build_end - build_start).count();
+    if (!sub) { // only for main graph
+        printf("[DEBUG] build(main) took %lld ms\n", build_duration);
+    }
 }
 
 void EBBkC_Graph_t::truss_decompose(const char *dir) {
@@ -284,7 +294,7 @@ void EBBkC_Graph_t::truss_decompose(const char *dir) {
         int skipped_edges = 0;
         
         for (int i = 0; i < g.m / 2; i++) {
-            if (g.edge_truss[i] <= K) { // Changed from <= to <
+            if (g.edge_truss[i] < K) { // Changed from <= to <
                 skipped_edges++;
                 continue;
             }
