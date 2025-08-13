@@ -416,3 +416,24 @@
 2025-08-11 00:00:14,452 - INFO -   gplus.edges (452499 bytes)
 2025-08-11 00:00:14,452 - INFO -   gplus.grh (436936 bytes)
 2025-08-11 00:00:14,452 - INFO - Pipeline completed successfully!
+2025-08-13 19:52:35,300 - INFO - Windows detected - using internal preprocessing for BBkC step
+2025-08-13 19:52:35,301 - INFO - Tool verification completed
+2025-08-13 19:52:35,302 - INFO - Processing H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh in directory H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus
+2025-08-13 19:52:35,302 - INFO - Converting H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh to edges format
+2025-08-13 19:52:35,333 - INFO - Successfully converted to H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.edges
+2025-08-13 19:52:35,333 - INFO - Internal cleaning of edges file H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.edges
+2025-08-13 19:52:35,397 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/gplus gplus.clean
+2025-08-13 19:52:35,633 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-13 19:52:35,634 - INFO - Successfully created clean file: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.clean
+2025-08-13 19:52:35,634 - INFO - Processed 39194 unique edges, max node ID: 23628
+2025-08-13 19:52:35,639 - INFO - Converting via WSL: /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets/edgelist2binary /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/testGraphs/gplus gplus.clean
+2025-08-13 19:52:35,800 - INFO - Successfully created binary files via WSL edgelist2binary
+2025-08-13 19:52:35,800 - INFO - Successfully processed H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus\gplus.grh
+2025-08-13 19:52:35,801 - INFO - Output directory: H:\OneDrive - northsouth.edu\Desktop\Dense_PCE\CSE491-\Dense_PCE\Dense-PCE-main\testGraphs\gplus
+2025-08-13 19:52:35,801 - INFO - Generated files:
+2025-08-13 19:52:35,802 - INFO -   b_adj.bin (313552 bytes)
+2025-08-13 19:52:35,802 - INFO -   b_degree.bin (94524 bytes)
+2025-08-13 19:52:35,803 - INFO -   gplus.clean (452501 bytes)
+2025-08-13 19:52:35,803 - INFO -   gplus.edges (452499 bytes)
+2025-08-13 19:52:35,803 - INFO -   gplus.grh (436936 bytes)
+2025-08-13 19:52:35,803 - INFO - Pipeline completed successfully!

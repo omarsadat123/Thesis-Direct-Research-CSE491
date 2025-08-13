@@ -60,7 +60,9 @@ public:
     int *lev = nullptr;
     int *loc = nullptr;
 
-    std::vector<std::pair<int,int>> branch_ends; // size K+1  
+    std::vector<std::pair<int,int>> branch_ends; // size K+1 
+    // In EBBkC_Graph_t declaration
+    std::vector<int> current_clique;  // Track vertices in current clique
 
     EBBkC_Graph_t();
     ~EBBkC_Graph_t();

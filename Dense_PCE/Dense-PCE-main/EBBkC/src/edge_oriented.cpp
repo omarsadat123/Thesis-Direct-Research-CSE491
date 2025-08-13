@@ -14,6 +14,13 @@
 #include "truss/util/reordering/reorder_utils.h"
 #include "truss/decompose/iter_helper.h"
 
+
+#include <chrono>
+
+static long long total_build_main_ms = 0;
+static long long total_build_sub_ms  = 0;
+
+
 //extern keyword declares that these global variables are defined in another file (specifically, main.cpp), allows edge_oriented.cpp to access and modify the clique size K, the plex parameter L, and the total clique count N
 extern const int K, L; 
 extern unsigned long long N;
@@ -220,8 +227,13 @@ void EBBkC_Graph_t::build(bool sub) { //allocates and initializes all the data s
 
     auto build_end = std::chrono::high_resolution_clock::now();
     auto build_duration = std::chrono::duration_cast<std::chrono::milliseconds>(build_end - build_start).count();
-    if (!sub) { // only for main graph
+    if (!sub) {
+        total_build_main_ms += build_duration;
         printf("[DEBUG] build(main) took %lld ms\n", build_duration);
+    } else {
+        total_build_sub_ms += build_duration;
+        // If you want per-subgraph builds printed, uncomment:
+        printf("[DEBUG] build(sub) took %lld ms\n", build_duration);
     }
 }
 
@@ -442,30 +454,37 @@ void EBBkC_Graph_t::branch(int e, EBBkC_Graph_t* g) {
     // }
 
     // u0, u1 are the endpoints of the e-th edge in the parent graph
-    g->branch_ends.resize(K+1);
-    g->branch_ends[K] = { 
-        this->new2old[edges[e].s],  // Convert to original ID
-        this->new2old[edges[e].t]   // Convert to original ID
-    };  // at the top level
+    // g->branch_ends.resize(K+1);
+    // g->branch_ends[K] = { 
+    //     this->new2old[edges[e].s],  // Convert to original ID
+    //     this->new2old[edges[e].t]   // Convert to original ID
+    // };  // at the top level
     // at deeper levels, K-2, K-4, … you similarly record in branch_ends[l]
+
+
+    // Initialize current clique with endpoints
+    g->current_clique.clear();
+    g->current_clique.push_back(this->new2old[edges[e].s]);
+    g->current_clique.push_back(this->new2old[edges[e].t]);
+
 
     delete [] old2new; // Since it's only needed to build this one subproblem, it's deleted at the end of the branch function
 
-    if (l == 3 || l == 4) {
-        g->sub_v_size[l - 2] = g->v_size;
-        g->sub_e_size[l - 2] = g->e_size;
-        // Initialize candidate vertex set
-        for (int idx = 0; idx < g->v_size; idx++) {
-            g->sub_v[l-2][idx] = idx;  // Store local vertex indices
-        }
-        if (l == 4) {
-            //g->sub_e_size[l - 2] = g->e_size;
-            for (int idx = 0; idx < g->e_size; idx++) {
-                g->sub_e[l-2][idx] = idx;  // Store local edge indices
-            }
-        }
-        return;
-    }
+    // if (l == 3 || l == 4) {
+    //     g->sub_v_size[l - 2] = g->v_size;
+    //     g->sub_e_size[l - 2] = g->e_size;
+    //     // Initialize candidate vertex set
+    //     for (int idx = 0; idx < g->v_size; idx++) {
+    //         g->sub_v[l-2][idx] = idx;  // Store local vertex indices
+    //     }
+    //     if (l == 4) {
+    //         //g->sub_e_size[l - 2] = g->e_size;
+    //         for (int idx = 0; idx < g->e_size; idx++) {
+    //             g->sub_e[l-2][idx] = idx;  // Store local edge indices
+    //         }
+    //     }
+    //     return;
+    // }
 
     // pruning check, If the newly created subgraph g is already too small to possibly contain a (K-2)-clique, the function returns immediately, and no further processing is done for this branch.
     if (g->v_size < l - 2 || g->e_size < (l - 2) * (l - 3) / 2) { // if the subgraph has fewer than l-2 vertices or fewer than (l-2)*(l-3)/2 edges, it's too small to contain a (K-2)-clique, so the function returns immediately
@@ -545,53 +564,50 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
         return;
     }  // pruning check to see if the subproblem is large enough to contain an l-clique?
 
-    if (K == 3) { // if the target clique size is 3, the number of cliques is simply the number of vertices in the subproblem
-        // DEBUG: Print found triangles
-        //printf("K=3 base: Found %d triangles\n", sub_v_size[l]);
-        // every vertex w in sub_v[l] completes a triangle {u0,u1,w}
-        auto &ends = branch_ends[K];
-        for (int idx = 0; idx < sub_v_size[l]; idx++) {
-            int w = sub_v[l][idx];                       
-            int orig_w = this->new2old[w];  // Already original ID
-            //printf("Storing K3: (%d,%d,%d)\n", ends.first, ends.second, orig_w);
-            cliques_vec.push_back({ends.first, ends.second, orig_w});
+
+
+    // ===================== FIX 2: REORDER AND SIMPLIFY CHECKS =====================
+    // Check for K=3 first. It's a problem-wide shortcut.
+    if (K == 3) {
+        for (int idx = 0; idx < sub_v_size[l]; idx++) { // l will be 1 here
+            int w = sub_v[l][idx];
+            int orig_w = this->new2old[w];
+            // Add to current clique and store
+            std::vector<int> full_clique = current_clique;
+            full_clique.push_back(orig_w);
+            cliques_vec.push_back(full_clique);
             (*cliques)++;
         }
         return;
     }
 
-    if (K == 4) { // if the target clique size is 4, the number of cliques is simply the number of edges in the subproblem
-        // DEBUG: Print found 4-cliques
-        //printf("K=4 base: Found %d 4-cliques\n", sub_e_size[l]);
-        // each edge e in sub_e[l] completes a 4-clique {u0,u1,u2,u3}
-        auto &ends2 = branch_ends[K];        // contains {u0,u1}
-        for (int idx = 0; idx < sub_e_size[l]; idx++) {
-            e = sub_e[l][idx];
-            int a = edges[e].s, b = edges[e].t;
-            int orig_a = this->new2old[a];  // Already original
-            int orig_b = this->new2old[b];  // Already original
-            //printf("Storing K4: (%d,%d,%d,%d)\n", ends2.first, ends2.second, orig_a, orig_b);
-            // record and count
-            //cliques_vec.push_back({ ends2.first, ends2.second, a, b });
-            cliques_vec.push_back({ends2.first, ends2.second, orig_a, orig_b});
-            (*cliques)++;
-        }
-        return;
-    }
+    // if (K == 4) {
+    //     for (int idx = 0; idx < sub_e_size[l]; idx++) {
+    //         e = sub_e[l][idx];
+    //         int a = edges[e].s, b = edges[e].t;
+    //         int orig_a = this->new2old[a];
+    //         int orig_b = this->new2old[b];
+    //         // Add edge vertices to current clique
+    //         std::vector<int> full_clique = current_clique;
+    //         full_clique.push_back(orig_a);
+    //         full_clique.push_back(orig_b);
+    //         cliques_vec.push_back(full_clique);
+    //         (*cliques)++;
+    //     }
+    //     return;
+    // }
 
+    // Now, handle the general recursive base cases.
     if (l == 2) {
-        auto &top_ends = branch_ends[K];  // Get top-level endpoints
         for (i = 0; i < sub_v_size[l]; i++) {
             u = sub_v[l][i];
             for (j = 0; j < DAG_deg[l][u]; j++) {
                 v = DAG_adj[u][j];
-                // Include top-level endpoints + current edge
-                cliques_vec.push_back({
-                    top_ends.first,
-                    top_ends.second,
-                    this->new2old[u],
-                    this->new2old[v]
-                });
+                // Add both vertices to current clique
+                std::vector<int> full_clique = current_clique;
+                full_clique.push_back(this->new2old[u]);
+                full_clique.push_back(this->new2old[v]);
+                cliques_vec.push_back(full_clique);
                 (*cliques)++;
             }
         }
@@ -599,8 +615,6 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
     }
 
     if (l == 3) { // base case, highly optimized routine to count all triangles in the current DAG subproblem 
-        // fully enumerate each triangle in the DAG by storing {u,v,w}
-        auto &top_ends = branch_ends[K];  // Get top-level endpoints
         for (i = 0; i < sub_v_size[l]; i++) {
             u = sub_v[l][i];
             if (col[u] < l) continue;
@@ -612,14 +626,12 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
                 for (k = 0; k < DAG_deg[l][v]; k++) {
                     w = DAG_adj[v][k];
                     if (lab[w] == l-1) {
-                        // Include top-level endpoints + triangle
-                        cliques_vec.push_back({
-                            top_ends.first,
-                            top_ends.second,
-                            this->new2old[u],
-                            this->new2old[v],
-                            this->new2old[w]
-                        });
+                        // Add all three vertices
+                        std::vector<int> full_clique = current_clique;
+                        full_clique.push_back(this->new2old[u]);
+                        full_clique.push_back(this->new2old[v]);
+                        full_clique.push_back(this->new2old[w]);
+                        cliques_vec.push_back(full_clique);
                         (*cliques)++;
                     }
                 }
@@ -630,6 +642,92 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
         return;
     }
 
+
+    // if (K == 3) { // if the target clique size is 3, the number of cliques is simply the number of vertices in the subproblem
+    //     // DEBUG: Print found triangles
+    //     //printf("K=3 base: Found %d triangles\n", sub_v_size[l]);
+    //     // every vertex w in sub_v[l] completes a triangle {u0,u1,w}
+    //     auto &ends = branch_ends[K];
+    //     for (int idx = 0; idx < sub_v_size[l]; idx++) {
+    //         int w = sub_v[l][idx];                       
+    //         int orig_w = this->new2old[w];  // Already original ID
+    //         //printf("Storing K3: (%d,%d,%d)\n", ends.first, ends.second, orig_w);
+    //         cliques_vec.push_back({ends.first, ends.second, orig_w});
+    //         (*cliques)++;
+    //     }
+    //     return;
+    // }
+
+    // if (K == 4) { // if the target clique size is 4, the number of cliques is simply the number of edges in the subproblem
+    //     // DEBUG: Print found 4-cliques
+    //     //printf("K=4 base: Found %d 4-cliques\n", sub_e_size[l]);
+    //     // each edge e in sub_e[l] completes a 4-clique {u0,u1,u2,u3}
+    //     auto &ends2 = branch_ends[K];        // contains {u0,u1}
+    //     for (int idx = 0; idx < sub_e_size[l]; idx++) {
+    //         e = sub_e[l][idx];
+    //         int a = edges[e].s, b = edges[e].t;
+    //         int orig_a = this->new2old[a];  // Already original
+    //         int orig_b = this->new2old[b];  // Already original
+    //         //printf("Storing K4: (%d,%d,%d,%d)\n", ends2.first, ends2.second, orig_a, orig_b);
+    //         // record and count
+    //         //cliques_vec.push_back({ ends2.first, ends2.second, a, b });
+    //         cliques_vec.push_back({ends2.first, ends2.second, orig_a, orig_b});
+    //         (*cliques)++;
+    //     }
+    //     return;
+    // }
+
+    // if (l == 2) {
+    //     auto &top_ends = branch_ends[K];  // Get top-level endpoints
+    //     for (i = 0; i < sub_v_size[l]; i++) {
+    //         u = sub_v[l][i];
+    //         for (j = 0; j < DAG_deg[l][u]; j++) {
+    //             v = DAG_adj[u][j];
+    //             // Include top-level endpoints + current edge
+    //             cliques_vec.push_back({
+    //                 top_ends.first,
+    //                 top_ends.second,
+    //                 this->new2old[u],
+    //                 this->new2old[v]
+    //             });
+    //             (*cliques)++;
+    //         }
+    //     }
+    //     return;
+    // }
+
+    // if (l == 3) { // base case, highly optimized routine to count all triangles in the current DAG subproblem 
+    //     // fully enumerate each triangle in the DAG by storing {u,v,w}
+    //     auto &top_ends = branch_ends[K];  // Get top-level endpoints
+    //     for (i = 0; i < sub_v_size[l]; i++) {
+    //         u = sub_v[l][i];
+    //         if (col[u] < l) continue;
+    //         // mark neighbors of u
+    //         for (j = 0; j < DAG_deg[l][u]; j++) lab[v = DAG_adj[u][j]] = l-1;
+    //         for (j = 0; j < DAG_deg[l][u]; j++) {
+    //             v = DAG_adj[u][j];
+    //             if (col[v] < l-1) continue;
+    //             for (k = 0; k < DAG_deg[l][v]; k++) {
+    //                 w = DAG_adj[v][k];
+    //                 if (lab[w] == l-1) {
+    //                     // Include top-level endpoints + triangle
+    //                     cliques_vec.push_back({
+    //                         top_ends.first,
+    //                         top_ends.second,
+    //                         this->new2old[u],
+    //                         this->new2old[v],
+    //                         this->new2old[w]
+    //                     });
+    //                     (*cliques)++;
+    //                 }
+    //             }
+    //         }
+    //         // reset marks
+    //         for (j = 0; j < DAG_deg[l][u]; j++) lab[DAG_adj[u][j]] = l;
+    //     }
+    //     return;
+    // }
+
     if (can_terminate(l, cliques)) { // check if the current subgraph is a "t-plex" (a very dense graph). If so, it uses a combinatorial method to count cliques, which is much faster than further recursion.
         //printf("Early termination at level %d\n", l);
         return;
@@ -639,6 +737,9 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
         u = sub_v[l][i];
 
         if (col[u] < l) continue; // If a vertex's color is less than the size of the clique l we're looking for, it's impossible for it to be part of an l-clique with its lower-colored neighbors, so the entire branch is skipped.
+
+        // Add vertex to current clique
+        current_clique.push_back(this->new2old[u]);
 
         sub_v_size[l - 1] = 0; // resets the counter for the number of vertices in the subproblem at the next recursive level (l-1)
         dist = 0; //  initializes a counter named dist
@@ -688,6 +789,8 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
             lab[v] = l;
             used[l][col[v]] = false;
         }
+        // Remove vertex after recursion
+        current_clique.pop_back();
     }
     // DEBUG: After recursion
     //printf("Exiting EBBkC_plus_plus at level %d\n", l);
@@ -700,22 +803,32 @@ void EBBkC_Graph_t::EBBkC_Comb_list(int *list, int  list_size, int  start, int  
         cur.clear();
 
     // BASE CASE: we’ve picked k vertices → record & count
+    // if (picked == k) {
+    //     std::vector<int> orig;
+    //     orig.reserve(k + 2);  // Reserve space for clique + endpoints
+        
+    //     // Add top-level endpoints first
+    //     auto &top_ends = this->branch_ends[K];
+    //     orig.push_back(top_ends.first);
+    //     orig.push_back(top_ends.second);
+        
+    //     // Add vertices from combinatorial list
+    //     for (int t = 0; t < k; t++) {
+    //         int main_idx = this->new2old[cur[t]];
+    //         orig.push_back(main_idx);
+    //     }
+        
+    //     cliques_vec.push_back(orig);
+    //     (*cliques)++;
+    //     return;
+    // }
+
     if (picked == k) {
-        std::vector<int> orig;
-        orig.reserve(k + 2);  // Reserve space for clique + endpoints
-        
-        // Add top-level endpoints first
-        auto &top_ends = this->branch_ends[K];
-        orig.push_back(top_ends.first);
-        orig.push_back(top_ends.second);
-        
-        // Add vertices from combinatorial list
+        std::vector<int> full_clique = current_clique;  // Start with current clique
         for (int t = 0; t < k; t++) {
-            int main_idx = this->new2old[cur[t]];
-            orig.push_back(main_idx);
+            full_clique.push_back(this->new2old[cur[t]]);
         }
-        
-        cliques_vec.push_back(orig);
+        cliques_vec.push_back(full_clique);
         (*cliques)++;
         return;
     }
@@ -732,10 +845,11 @@ void EBBkC_Graph_t::list_in_plex(int start, int p, int q, unsigned long long *cl
     if (F_size < q) return;
 
     if (p == 0) {
-        if (q > F_size - q)
-            EBBkC_Comb_list(F, F_size, 0, 0, F_size - q, cliques);
-        else
-            EBBkC_Comb_list(F, F_size, 0, 0, q, cliques);
+        // if (q > F_size - q)
+        //     EBBkC_Comb_list(F, F_size, 0, 0, F_size - q, cliques);
+        // else
+        //     EBBkC_Comb_list(F, F_size, 0, 0, q, cliques);
+        EBBkC_Comb_list(F, F_size, 0, 0, q, cliques);
         return;
     }
 
@@ -754,7 +868,14 @@ void EBBkC_Graph_t::list_in_plex(int start, int p, int q, unsigned long long *cl
             }
         }
 
+        // FIX: Add the selected vertex 'u' to the current clique before recursing.
+        // We use this->new2old[u] to get its original, global ID.
+        current_clique.push_back(this->new2old[u]);
+
         list_in_plex(i + 1, p - 1, q, cliques);
+
+        // FIX: Backtrack by removing the vertex after the recursive call returns.
+        current_clique.pop_back();
 
         for (j = 0; j < lack_size[u]; j++) {
             v = lack[u][j];
@@ -771,6 +892,10 @@ void EBBkC_Graph_t::list_in_plex(int start, int p, int q, unsigned long long *cl
 }
 
 bool EBBkC_Graph_t::can_terminate(int l, unsigned long long *cliques) {
+    // Only allow early termination at the top level (l == K-2)
+    if (l != K - 2) {
+        return false;
+    }
     int i, j, k, u, v, end, p_;
 
     if (sub_e_size[l] < sub_v_size[l] * (sub_v_size[l] - L) / 2) return false;
@@ -868,6 +993,11 @@ double EBBkC_t::list_k_clique(const char *file_name) {
     runtime = GetTime(&start, &end);
 
     printf("Number of %u-cliques: %llu\n", K, N);
+
+    printf("[DEBUG] Total build(main) time: %lld ms\n", total_build_main_ms);
+    printf("[DEBUG] Total build(sub) time: %lld ms\n", total_build_sub_ms);
+    printf("[DEBUG] Total build time: %lld ms\n", total_build_main_ms + total_build_sub_ms);
+
 
     // Modified output path to include K in filename
     std::string input_path(file_name);
