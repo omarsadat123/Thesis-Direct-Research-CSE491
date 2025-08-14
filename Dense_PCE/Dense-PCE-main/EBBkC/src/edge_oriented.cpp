@@ -20,8 +20,7 @@ static long long total_build_main_ms = 0;
 static long long total_build_sub_ms  = 0;
 
 
-//extern keyword declares that these global variables are defined elsewhere (e.g., main.cpp or embedding app).
-// Make them non-const so an embedding app can set K/L dynamically for in-memory API runs.
+// non-const K and L so an embedding app can set K/L dynamically for in-memory API runs.
 extern int K, L; 
 extern unsigned long long N;
 std::vector<std::vector<int>> cliques_vec;
@@ -39,7 +38,7 @@ EBBkC_Graph_t::~EBBkC_Graph_t() {
 
     delete [] edges;
 
-// deallocate the 2D arrays T (common neighbors) and C (common edges for the next level)
+    // deallocate the 2D arrays T (common neighbors) and C (common edges for the next level)
     if (T) {
         for (i = 0; i < link_size; i++) delete [] T[i];
         delete [] T;
@@ -54,7 +53,7 @@ EBBkC_Graph_t::~EBBkC_Graph_t() {
 
     delete [] C_size;
 
-// sub_v and sub_e were used to hold the vertices and edges of recursive subproblems.
+    // sub_v and sub_e were used to hold the vertices and edges of recursive subproblems.
     if (sub_v) {
         for (i = 0; i <= k; i++) delete [] sub_v[i];
         delete [] sub_v;
@@ -71,7 +70,7 @@ EBBkC_Graph_t::~EBBkC_Graph_t() {
 
     delete [] lab;
 
-// DAG_deg and G_deg, which stored vertex degrees at different levels of recursion.    
+    // DAG_deg and G_deg, which stored vertex degrees at different levels of recursion.    
     if (DAG_deg) {
         for (i = 0; i <= k; i++) delete [] DAG_deg[i];
         delete [] DAG_deg;
@@ -85,7 +84,7 @@ EBBkC_Graph_t::~EBBkC_Graph_t() {
 
 
     delete [] col; //col array, which stored the color of each vertex
-// DAG_adj and G_adj, which stored the adjacency lists for the colored DAG and the undirected graph, respectively
+    // DAG_adj and G_adj, which stored the adjacency lists for the colored DAG and the undirected graph, respectively
     if (DAG_adj) {
         for (i = 0; i < node_size; i++) delete [] DAG_adj[i];
         delete [] DAG_adj;
@@ -95,7 +94,7 @@ EBBkC_Graph_t::~EBBkC_Graph_t() {
         for (i = 0; i < node_size; i++) delete [] G_adj[i];
         delete [] G_adj;
     }
-// used 2D array, likely used as a temporary marker during coloring or other vertex processing.
+    // used 2D array, likely used as a temporary marker during coloring or other vertex processing.
     if (used) {
         for (i = 0; i <= k; i++) delete [] used[i];
         delete [] used;
@@ -113,18 +112,18 @@ EBBkC_Graph_t::~EBBkC_Graph_t() {
         for (i = 0; i <= k; i++) delete [] out_e_size[i];
         delete [] out_e_size;
     }
-// (F, P, lack_size) used specifically for the early termination technique to handle plexes.
+    // (F, P, lack_size) used specifically for the early termination technique to handle plexes.
     delete [] F;
 
     delete [] P;
 
     delete [] lack_size;
-// lack 2D array, which stored the missing connections for vertices in a detected plex.
+    // lack 2D array, which stored the missing connections for vertices in a detected plex.
     if (lack) {
         for (i = 0; i < node_size; i++) delete [] lack[i];
         delete [] lack;
     }
-// helper arrays (lev, loc) used for the plex-listing algorithm.
+    // helper arrays (lev, loc) used for the plex-listing algorithm.
     delete [] lev;
 
     delete [] loc;
@@ -1019,8 +1018,7 @@ double EBBkC_t::list_k_clique(const char *file_name) {
     return runtime;
 }
 
-double EBBkC_t::list_k_clique_mem(const char* dir, int k, int l,
-                                  std::vector<std::vector<int>>& out_cliques) {
+double EBBkC_t::list_k_clique_mem(const char* dir, int k, int l, std::vector<std::vector<int>>&  out_cliques) {
     // Configure globals for this run
     K = k;
     L = l;
@@ -1039,6 +1037,12 @@ double EBBkC_t::list_k_clique_mem(const char* dir, int k, int l,
     }
     double ms = (double)(omp_get_wtime() - t0) * 1e3;
 
+    printf("Number of %u-cliques: %llu\n", K, N);
+    printf("[DEBUG] Total build(main) time: %lld ms\n", total_build_main_ms);
+    printf("[DEBUG] Total build(sub) time: %lld ms\n", total_build_sub_ms);
+    printf("[DEBUG] Total build time: %lld ms\n", total_build_main_ms + total_build_sub_ms);
+    printf("[DEBUG] Average build(sub) time: %.2f ms\n", G.e_size ? (double)total_build_sub_ms / G.e_size : 0.0);
+
     out_cliques.swap(cliques_vec);
     cliques_vec.clear();
     return ms;
@@ -1047,7 +1051,7 @@ double EBBkC_t::list_k_clique_mem(const char* dir, int k, int l,
 double EBBkC_t::list_k_clique_parallel(const char *file_name) {
     double runtime = 0, runtime1 = 0;
     int n_edges, i;
-//    struct rusage start, end;
+    // struct rusage start, end;
     double start, end;
     EBBkC_Graph_t G, g;
 

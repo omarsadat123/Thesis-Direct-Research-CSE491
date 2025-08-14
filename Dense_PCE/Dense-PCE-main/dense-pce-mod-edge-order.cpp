@@ -24,9 +24,9 @@ int L = 2;
 unsigned long long N = 0ULL;
 
 // Define PATH_MAX if not already defined
-#ifndef PATH_MAX
-#define PATH_MAX 4096
-#endif
+// #ifndef PATH_MAX
+// #define PATH_MAX 4096
+// #endif
 
 std::vector<std::vector<int>> read_clique_file(const std::string& path) {
     std::ifstream file(path);
@@ -344,8 +344,6 @@ private:
     int current_min_core_in_P_fast() const {
         return (cur_min_core == INT_MAX) ? 0 : cur_min_core;
     }
-
-
 
     std::stack<int> children; //Stack of vertices to be processed
 
@@ -758,7 +756,6 @@ void PseudoCliqueEnumerator::add_to_inside_P(int v) { //Add vertex v to the curr
 
     iter(v); //Find and process the children of this NEW pseudo-clique
 }
-
 
 void PseudoCliqueEnumerator::remove_from_inside_P(int v) {
         tracks[v][0] = false; //Mark v as not in P
