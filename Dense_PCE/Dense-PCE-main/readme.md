@@ -19,6 +19,18 @@ A high-performance system for finding dense pseudo-cliques in graphs using the D
 cd Dense_PCE/Dense-PCE-main
 
 # Build the integrated system (EBBkC library + Dense-PCE)
+# Choose one of the following methods:
+
+# Method 1: Bash script (Linux/macOS/WSL) - Recommended
+bash build_integrated.sh
+
+# Method 2: PowerShell script (Windows)
+.\build_integrated.ps1
+
+# Method 3: Batch script (Windows Command Prompt)
+build_integrated.bat
+
+# Method 4: WSL (if on Windows)
 wsl bash build_integrated.sh
 ```
 
@@ -62,13 +74,20 @@ Graph (.grh) → Graph Pipeline → Binary Files → EBBkC Library → R-cliques
 
 ```bash
 # Run the automated build script
-wsl bash build_integrated.sh
+bash build_integrated.sh
 ```
 
 This script:
-1. Builds EBBkC as a static library (`libebbkc_core.a`)
-2. Links all dependencies (`libcommon-utils.a`, `libgraph-pre-processing.a`)
-3. Compiles the integrated executable with proper flags
+1. **Cleans up old build artifacts** to avoid path conflicts
+2. **Builds EBBkC as a static library** (`libebbkc_core.a`)
+3. **Links all dependencies** (`libcommon-utils.a`, `libgraph-pre-processing.a`)
+4. **Compiles the integrated executable** with proper flags
+5. **Handles location changes** gracefully (no more CMake cache issues)
+
+**Cross-platform support:**
+- **Linux/macOS**: `bash build_integrated.sh`
+- **Windows PowerShell**: `.\build_integrated.ps1`
+- **Windows Command Prompt**: `build_integrated.bat`
 
 ### Option 2: Manual Build
 
@@ -164,15 +183,40 @@ Total Iterations: 28055
 
 ### Using the Graph Pipeline
 
+The graph pipeline has been significantly improved to handle path issues when the project is moved to different devices or locations.
+
 ```bash
 # Preprocess a graph for the integrated system
-python3 graph_pipeline.py testGraphs/gplus/gplus.grh
+python graph_pipeline.py testGraphs/gplus/gplus.grh
 
-# This creates:
-# - gplus.edges (edge list)
-# - gplus.clean (cleaned edges)
-# - b_adj.bin, b_degree.bin (binary format)
+# Process with custom output directory
+python graph_pipeline.py testGraphs/gplus/gplus.grh ./processed_graphs/
+
+# Process all graphs in a directory
+python graph_pipeline.py --batch synth-graphs-1000/
+
+# Process batch with custom output base directory
+python graph_pipeline.py --batch synth-graphs-1000/ ./batch_processed/
 ```
+
+**This creates:**
+- `gplus.edges` (edge list)
+- `gplus.clean` (cleaned edges)
+- `b_adj.bin`, `b_degree.bin` (binary format)
+
+### Testing Path Handling
+
+Before running the main pipeline, test the path handling:
+
+```bash
+python test_path_handling.py
+```
+
+This verifies:
+- WSL availability and functionality
+- Path conversion accuracy
+- Tool accessibility
+- Current directory setup
 
 ### Manual Preprocessing
 
@@ -197,25 +241,39 @@ pipeline.grhtoedges('testGraphs/gplus/gplus.grh')
 
 ### Common Issues
 
-1. **OpenMP Library Not Found**:
+1. **CMake Cache Path Conflicts**:
+   ```bash
+   # Error: CMakeCache.txt directory is different than where it was created
+   # Solution: The build scripts now automatically clean up old cache files
+   bash build_integrated.sh  # This will clean and rebuild
+   ```
+
+2. **WSL Path Conversion Errors**:
+   ```bash
+   # Error: WSL command failed with return code 1
+   # Solution: Test path handling first
+   python test_path_handling.py
+   ```
+
+3. **OpenMP Library Not Found**:
    ```bash
    # Install OpenMP development package
    sudo apt-get install libomp-dev  # Ubuntu/Debian
    ```
 
-2. **TBB Library Not Found**:
+4. **TBB Library Not Found**:
    ```bash
    # Install Intel TBB
    sudo apt-get install libtbb-dev
    ```
 
-3. **CMake Version Too Old**:
+5. **CMake Version Too Old**:
    ```bash
    # Update CMake
    sudo apt-get install cmake
    ```
 
-4. **WSL Not Available**:
+6. **WSL Not Available**:
    - Install WSL2 on Windows
    - Or use a Linux virtual machine
 
@@ -228,6 +286,9 @@ ls -la build_integrated/
 
 # Test the executable
 ./build_integrated/dense-pce-mod-edge-order-integrated --help
+
+# Test path handling (if using graph pipeline)
+python test_path_handling.py
 ```
 
 ## 📚 Algorithm Details
@@ -250,6 +311,22 @@ ls -la build_integrated/
 - **Space Complexity**: O(n²) for adjacency representation
 - **Practical Performance**: Significantly faster than file-based approaches
 
+## 🔧 Recent Improvements
+
+### Build System Enhancements
+
+- **Cross-platform support**: Bash, PowerShell, and Batch scripts
+- **Automatic cleanup**: Removes old CMake cache files to prevent path conflicts
+- **Location independence**: Works regardless of where the project is moved
+- **Better error handling**: Comprehensive error reporting and recovery
+
+### Graph Pipeline Improvements
+
+- **Robust WSL path handling**: Properly handles paths with spaces, parentheses, and special characters
+- **Enhanced error recovery**: Timeout protection and detailed logging
+- **Working directory management**: Commands execute in correct directory context
+- **Batch processing support**: Process multiple graphs efficiently
+
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -266,9 +343,16 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 For issues and questions:
 1. Check the troubleshooting section
-2. Review the build logs
-3. Open an issue on GitHub
+2. Run the test scripts: `python test_path_handling.py`
+3. Review the build logs and `graph_preprocessing.log`
+4. Open an issue on GitHub
+
+## 📖 Additional Documentation
+
+- **Build Instructions**: See `BUILD_INSTRUCTIONS.md` for detailed build procedures
+- **Graph Pipeline Guide**: See `GRAPH_PIPELINE_README.md` for comprehensive pipeline documentation
+- **Path Handling Tests**: Use `test_path_handling.py` to verify system setup
 
 ---
 
-**Note**: This integrated system provides significant performance improvements over the original file-based approach by eliminating I/O overhead and process spawning costs.
+**Note**: This integrated system provides significant performance improvements over the original file-based approach by eliminating I/O overhead and process spawning costs. The recent improvements ensure robust operation across different platforms and locations.

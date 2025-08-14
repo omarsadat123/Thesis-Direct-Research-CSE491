@@ -13,6 +13,11 @@ if [ ! -f "dense-pce-mod-edge-order.cpp" ]; then
     exit 1
 fi
 
+# Clean up old build artifacts to avoid path conflicts
+echo "=== Cleaning up old build artifacts ==="
+rm -rf build_integrated
+rm -rf EBBkC/src/build
+
 # Create build directory
 mkdir -p build_integrated
 cd build_integrated
@@ -24,8 +29,14 @@ cd ../EBBkC/src
 mkdir -p build
 cd build
 
+# Clean any existing CMake cache to avoid path conflicts
+rm -f CMakeCache.txt
+rm -rf CMakeFiles
+
 # Configure and build EBBkC
+echo "Configuring EBBkC with CMake..."
 cmake .. -DCMAKE_BUILD_TYPE=Release
+echo "Building EBBkC..."
 make -j$(nproc)
 
 # Copy the library to main directory
@@ -36,6 +47,7 @@ echo "=== Step 2: Compiling dense-pce-mod-edge-order with EBBkC library ==="
 
 # Compile dense-pce-mod-edge-order with EBBkC library
 # Try different OpenMP library names for different systems
+echo "Compiling integrated executable..."
 g++ -std=c++17 -O3 -march=native -fopenmp \
     -I../EBBkC/src \
     -I../EBBkC/src/truss/dependencies/sparsepp \

@@ -6,8 +6,8 @@ This script provides a cross-platform preprocessing pipeline that handles the
 BBkC preprocessing step internally for Windows compatibility.
 
 Usage:
-    python graph_preprocessing_pipeline_windows.py <input_grh_file> [output_directory]
-    python graph_preprocessing_pipeline_windows.py --batch <input_directory> [output_base_directory]
+    python graph_pipeline.py <input_grh_file> [output_directory]
+    python graph_pipeline.py --batch <input_directory> [output_base_directory]
 
 Author: AI Assistant
 Date: 2024
@@ -21,6 +21,7 @@ import argparse
 from pathlib import Path
 import logging
 import platform
+import tempfile
 
 # Configure logging
 logging.basicConfig(
@@ -69,13 +70,49 @@ class WindowsGraphPreprocessor:
         logger.info("Tool verification completed")
 
     def _to_wsl_path(self, path: Path) -> str:
-        """Convert a Windows Path to WSL /mnt/<drive>/... form."""
+        """Convert a Windows Path to WSL /mnt/<drive>/... form with proper escaping."""
         p = str(path.resolve())
         if len(p) > 1 and p[1] == ':' and p[0].isalpha():
             drive = p[0].lower()
-            rest = p[2:].replace('\\', '/').replace(' ', '\ ')
+            rest = p[2:].replace('\\', '/')
+            # Don't escape here - we'll use single quotes around the path
             return f"/mnt/{drive}{rest}"
-        return p.replace('\\', '/').replace(' ', '\ ')
+        return p.replace('\\', '/')
+    
+    def _run_wsl_command(self, command, working_dir=None, capture_output=True):
+        """Run a command in WSL with proper working directory and error handling."""
+        try:
+            # Create a bash script that sets the working directory and runs the command
+            if working_dir:
+                wsl_working_dir = self._to_wsl_path(Path(working_dir))
+                # Use single quotes to properly handle special characters in paths
+                bash_script = f"cd '{wsl_working_dir}' && {command}"
+            else:
+                bash_script = command
+            
+            logger.info(f"Running WSL command: {bash_script}")
+            
+            result = subprocess.run(
+                ["wsl", "bash", "-c", bash_script],
+                capture_output=capture_output,
+                text=True,
+                timeout=300  # 5 minute timeout
+            )
+            
+            if result.returncode != 0:
+                logger.warning(f"WSL command failed with return code {result.returncode}")
+                if capture_output:
+                    logger.warning(f"STDOUT: {result.stdout}")
+                    logger.warning(f"STDERR: {result.stderr}")
+            
+            return result
+            
+        except subprocess.TimeoutExpired:
+            logger.error("WSL command timed out")
+            return None
+        except Exception as e:
+            logger.error(f"Error running WSL command: {e}")
+            return None
     
     def grh_to_edges(self, grh_file, edges_file):
         """Convert .grh file to .edges format."""
@@ -109,19 +146,21 @@ class WindowsGraphPreprocessor:
             return False
     
     def edges_to_clean(self, edges_file, output_dir):
-        """Clean edges using BBkC preprocessing or internal method."""
+        """Clean edges using BBkC preprocessing with improved path handling."""
         clean_file = Path(output_dir) / f"{Path(edges_file).stem}.clean"
         
-        # Strictly use BBkC only
         logger.info(f"Cleaning edges file {edges_file} using BBkC")
         try:
             if self.is_windows:
-                # Use WSL to run BBkC
+                # Use WSL to run BBkC with proper working directory
                 linux_bbkc = self._to_wsl_path(self.bbkc_path)
                 linux_edges = self._to_wsl_path(Path(edges_file))
-                wsl_cmd = f"{linux_bbkc} p {linux_edges}"
-                logger.info(f"Running via WSL: {wsl_cmd}")
-                result = subprocess.run(["wsl", "bash", "-lc", wsl_cmd], capture_output=True, text=True)
+                # Use single quotes around paths to handle special characters
+                wsl_cmd = f"'{linux_bbkc}' p '{linux_edges}'"
+                
+                result = self._run_wsl_command(wsl_cmd, working_dir=output_dir)
+                if result is None:
+                    return False
             else:
                 cmd = [str(self.bbkc_path), "p", str(edges_file)]
                 logger.info(f"Running command: {' '.join(cmd)}")
@@ -143,11 +182,7 @@ class WindowsGraphPreprocessor:
             return False
     
     def clean_to_binary(self, clean_file, output_dir):
-        """Convert .clean file to binary format using edgelist2binary or internal method.
-        Preference order:
-          1) Native edgelist2binary (Linux/macOS)
-          2) WSL edgelist2binary (Windows with WSL)
-        """
+        """Convert .clean file to binary format using edgelist2binary with improved path handling."""
         clean_path = Path(clean_file)
         out_dir = Path(output_dir)
         b_adj_file = out_dir / "b_adj.bin"
@@ -169,21 +204,22 @@ class WindowsGraphPreprocessor:
             except Exception as e:
                 logger.warning(f"edgelist2binary error: {e}")
 
-        # 2) Windows: try WSL
+        # 2) Windows: try WSL with improved path handling
         if self.is_windows and self.wsl_available:
             try:
                 linux_tool = self._to_wsl_path(self.edgelist2binary_path)
-                linux_dir = self._to_wsl_path(out_dir)
-                # Use bash -lc to ensure relative resolution and env
-                wsl_cmd = f"{linux_tool} {linux_dir} {clean_path.name}"
+                wsl_cmd = f"'{linux_tool}' . '{clean_path.name}'"
                 logger.info(f"Converting via WSL: {wsl_cmd}")
-                result = subprocess.run(["wsl", "bash", "-lc", wsl_cmd], capture_output=True, text=True)
-                if result.returncode != 0:
-                    logger.warning(f"WSL edgelist2binary failed: {result.stderr or result.stdout}")
-                else:
+                
+                result = self._run_wsl_command(wsl_cmd, working_dir=out_dir)
+                if result and result.returncode == 0:
                     if b_adj_file.exists() and b_degree_file.exists():
                         logger.info("Successfully created binary files via WSL edgelist2binary")
                         return True
+                    else:
+                        logger.warning("WSL edgelist2binary completed but binary files not found")
+                else:
+                    logger.warning("WSL edgelist2binary failed")
             except Exception as e:
                 logger.warning(f"WSL conversion error: {e}")
 
@@ -285,16 +321,16 @@ def main():
         epilog="""
 Examples:
   # Process single graph file (creates .edges, .clean, .bin files in same directory)
-  python graph_preprocessing_pipeline_windows.py protein/Protein.grh
+  python graph_pipeline.py protein/Protein.grh
 
   # Process single graph with custom output directory
-  python graph_preprocessing_pipeline_windows.py graph.grh ./processed_graphs/
+  python graph_pipeline.py graph.grh ./processed_graphs/
 
   # Process all .grh files in a directory (creates files in each file's directory)
-  python graph_preprocessing_pipeline_windows.py --batch synth-graphs-1000/
+  python graph_pipeline.py --batch synth-graphs-1000/
 
   # Process batch with custom output base directory
-  python graph_preprocessing_pipeline_windows.py --batch synth-graphs-1000/ ./batch_processed/
+  python graph_pipeline.py --batch synth-graphs-1000/ ./batch_processed/
         """
     )
     
