@@ -602,7 +602,7 @@ public:
     // }
 
 
-    void enumerate_with_turan();  // Enumerate pseudo-cliques using Turan's theorem
+    void enumerate_with_turan(const std::vector<int>& turan_seed);  // Enumerate pseudo-cliques using Turan's theorem
     // Enumerate pseudo-cliques using provided R-clique seeds (in-memory, no file I/O)
     void enumerate_with_seeds(const std::vector<std::vector<int>>& r_cliques);
     // ADD THIS NEW PUBLIC METHOD for reporting unique pseudo-cliques
@@ -658,62 +658,44 @@ public:
     }
 }; 
 
-void PseudoCliqueEnumerator::enumerate_with_turan() {
-    // 1. Build path to the clique file
-    std::string graph_path = graph.graph_file_path;
-    size_t last_slash = graph_path.find_last_of("/\\");
-    std::string dir = (last_slash == std::string::npos) ? "." : graph_path.substr(0, last_slash);
-    std::cout << "dir: " << dir << std::endl;
-    std::string clique_file = dir + "/cliques_K" + std::to_string(R);
-    
-    // 2. Load the r-clique seeds
-    auto r_cliques = read_clique_file(clique_file);
-    if (r_cliques.empty()) {
-        std::cout << "No " << R << "-cliques found to extend." << std::endl;
+void PseudoCliqueEnumerator::enumerate_with_turan(const std::vector<int>& turan_seed) {
+    if (turan_seed.empty()) {
+        std::cout << "Turán path is empty; nothing to extend." << std::endl;
         return;
     }
 
-    // 3. Process each r-clique seed
-    for (const auto& r_clique : r_cliques) {
-        auto sorted_clique = r_clique;
-        std::sort(sorted_clique.begin(), sorted_clique.end(), [&](int a, int b) {
-            return std::make_pair(graph.adj_map[a].size(), a) < std::make_pair(graph.adj_map[b].size(), b);
-        });
+    // A) Deterministic order: (deg, id)
+    auto sorted_clique = turan_seed;
+    std::sort(sorted_clique.begin(), sorted_clique.end(), [&](int a, int b) {
+        return std::make_pair(graph.adj_map[a].size(), a) < std::make_pair(graph.adj_map[b].size(), b);
+    });
 
-        // ======================= START: NEW DEBUG LINE =======================
-        //std::cout << "[DEBUG] Executing search branch starting from seed r-clique: ";
-        // for(int v : sorted_clique) { std::cout << v << " "; }
-        // std::cout << std::endl;
-        // ======================== END: NEW DEBUG LINE ========================
-        
-        // --- A. Seed the enumerator's state ---
-        for (int vertex : sorted_clique) {
-            add_vertex_internal(vertex); // Use the new helper that doesn't recurse
-        }
-        // Non-maximal enumeration removed
-        // // Establish canonical seed ids: ascending order of the seed vertices by id
-        // current_seed_sorted_ids = r_clique;
-        // std::sort(current_seed_sorted_ids.begin(), current_seed_sorted_ids.end());
+    // B) Insert seed into P
+    for (int v : sorted_clique) add_vertex_internal(v);
 
-        // // Count the seeded R-clique itself in non-maximal mode if canonical
-        // if (!maximal_only && total_nodes_in_P >= min_size) {
-        //     if (is_current_seed_canonical() && static_cast<size_t>(total_nodes_in_P) < pseudo_cliques_count.size()) {
-        //         pseudo_cliques_count[total_nodes_in_P] += 1;
-        //     }
-        // }
-
-        // --- B. Kick-off the recursive search for extensions ---
-        // int last_vertex = *std::max_element(r_clique.begin(), r_clique.end());
-        int last_vertex = sorted_clique.back(); // Use last added vertex, not max_element
-        iter(last_vertex);
-
-        // --- C. Backtrack to reset the state for the next seed ---
-        // Must remove vertices in the reverse order of addition.
-        for (auto it = sorted_clique.rbegin(); it != sorted_clique.rend(); ++it) {
-            remove_from_inside_P(*it);
-        }
+    // C) v* from δ(P) bucket (min id)
+    const int deltaP = min_degree_in_P_fast();
+    int v_star = -1;
+    if (deltaP >= 0 && deltaP < static_cast<int>(inside_P.size()) && !inside_P[deltaP].empty()) {
+        v_star = *std::min_element(inside_P[deltaP].begin(), inside_P[deltaP].end());
+    } else {
+        v_star = *std::min_element(sorted_clique.begin(), sorted_clique.end()); // safe fallback
     }
+
+    // D) Canonicalize seed
+    const int seed_min = *std::min_element(sorted_clique.begin(), sorted_clique.end());
+    if (v_star != seed_min) {
+        for (auto it = sorted_clique.rbegin(); it != sorted_clique.rend(); ++it) remove_from_inside_P(*it);
+        return;
+    }
+
+    // E) Recurse from true v*
+    iter(v_star);
+
+    // F) Clean up
+    for (auto it = sorted_clique.rbegin(); it != sorted_clique.rend(); ++it) remove_from_inside_P(*it);
 }
+
 
 // Enumerate using in-memory R-clique seeds (no file I/O)
 void PseudoCliqueEnumerator::enumerate_with_seeds(const std::vector<std::vector<int>>& r_cliques) {
@@ -723,6 +705,7 @@ void PseudoCliqueEnumerator::enumerate_with_seeds(const std::vector<std::vector<
     }
 
     for (const auto& r_clique : r_cliques) {
+        // A) Order seed vertices deterministically and insert them into P
         auto sorted_clique = r_clique;
         std::sort(sorted_clique.begin(), sorted_clique.end(), [&](int a, int b) {
             return std::make_pair(graph.adj_map[a].size(), a) < std::make_pair(graph.adj_map[b].size(), b);
@@ -732,14 +715,28 @@ void PseudoCliqueEnumerator::enumerate_with_seeds(const std::vector<std::vector<
             add_vertex_internal(vertex);
         }
 
-        int last_vertex = sorted_clique.back();
-        iter(last_vertex);
+        // B) Compute v* = min-id among vertices with degree δ(P) inside P
+        int v_star = -1;
+        const int deltaP = min_degree_in_P_fast(); // δ(P)
 
+        if (deltaP >= 0 && deltaP < static_cast<int>(inside_P.size()) && !inside_P[deltaP].empty()) {
+            // Choose the smallest ID among the δ(P) bucket
+            v_star = *std::min_element(inside_P[deltaP].begin(), inside_P[deltaP].end());
+        } else {
+            // Fallback (shouldn't happen if we just inserted a seed): smallest ID in the seed
+            v_star = *std::min_element(sorted_clique.begin(), sorted_clique.end());
+        }
+
+        // C) Launch recursion from the true v*
+        iter(v_star);
+
+        // D) Clean up P for the next seed
         for (auto it = sorted_clique.rbegin(); it != sorted_clique.rend(); ++it) {
             remove_from_inside_P(*it);
         }
     }
 }
+
 
 void PseudoCliqueEnumerator::add_to_inside_P(int v) { //Add vertex v to the current pseudo-clique P and update all tracking structures in O(degree(v)) time.
     // std::cout << "adding: " << v  << "\n";
@@ -833,6 +830,13 @@ void PseudoCliqueEnumerator::iter(int v) { //the "sophisticated process"
         }
     }
 
+    // A) Use a LOCAL children container (do NOT use a member/shared one)
+    std::vector<int> children;
+    children.reserve(256); // or a heuristic you like
+
+    // B) Integer threshold for "add-degree in P" using ceil(theta_P)
+    const int min_add_deg = static_cast<int>(std::ceil(theta_P));
+
 
     int c = 0; // Counter for number of children found
     int v_star_degree = tracks[v][2]; // Get degree of v in P, v is v*
@@ -840,21 +844,21 @@ void PseudoCliqueEnumerator::iter(int v) { //the "sophisticated process"
     // Child type 1: Lower Degree Vertices
     for (int deg = std::max(0, static_cast<int>(theta_P)); deg < v_star_degree; ++deg) {
         for (int u : neighbors_and_P[deg]) {
-            if (tracks[u][0] || tracks[u][2] < theta_P) {
+            if (tracks[u][0] || tracks[u][2] < min_add_deg) {
                 continue;
             }
             c++;
-            children.push(u);
+            children.push_back(u);
         }
     }
 
     // Child type 2: Same Degree Vertices
     for (int u : neighbors_and_P[v_star_degree]) {
-        if (tracks[u][0] || tracks[u][2] < theta_P) { // Skip if u is already in P or has degree less than theta_P
+        if (tracks[u][0] || tracks[u][2] < min_add_deg) { // Skip if u is already in P or has degree less than theta_P
             continue;
         }
         if (u < v) { // Tie-break using vertex index
-            children.push(u);
+            children.push_back(u);
             c++;
         } 
         else if (graph.adj_map[v].count(u)) { //if u>v, practical implementation of the main condition from Lemma 4: u <_K l(u, K).
@@ -866,40 +870,61 @@ void PseudoCliqueEnumerator::iter(int v) { //the "sophisticated process"
                 }
             }
             if (valid) {
-                children.push(u);
+                children.push_back(u);
                 c++;
 
             }
         }
     }
 
-    // Child type 3: Higher Degree Vertices (restore original ordering rule)
-    if (v_star_degree + 1 >= inside_P[v_star_degree].size()) {
-        for (int u : neighbors_and_P[v_star_degree + 1]) {
-            if (tracks[u][0] || tracks[u][2] < theta_P) {
-                continue;
-            }
-            if (graph.adj_map[v].count(u) && v > u) {
+    // ---- Child type 3: vertices with degree == δ(P)+1 in P (correct gating) ----
+    // v_star_degree is δ(P). We target vertices whose degree in P is δ(P)+1.
+    {
+        const int deltaP    = v_star_degree;
+        const int targetDeg = deltaP + 1;
+
+        // Bounds/availability check
+        if (targetDeg >= 0 && targetDeg < static_cast<int>(inside_P.size())) {
+
+            // Iterate candidates that currently have degree == δ(P)+1 inside P
+            // (Assumes neighbors_and_P[deg] enumerates vertices of that degree in P’s neighborhood)
+            for (int u : neighbors_and_P[targetDeg]) {
+
+                // Skip if 'u' already in P (or otherwise marked) OR doesn't meet the add-degree threshold
+                if (tracks[u][0] || tracks[u][2] < min_add_deg) continue;
+
+                // Tie-breaks relative to v*:
+                //  - u must be adjacent to v*,
+                //  - and enforce canonical lex order u < v (equivalently: v > u)
+                if (!graph.adj_map[v].count(u) || !(v > u)) continue;
+
                 bool valid = true;
-                for (int x : inside_P[v_star_degree]) {
-                    if (!graph.adj_map[u].count(x)) {
-                        valid = false;
-                        break;
-                    }
+
+                // (1) u must be adjacent to all vertices in the δ(P) bucket (the min-degree vertices in P)
+                //     This ensures we only consider "next-layer" candidates that fully connect to the
+                //     current δ(P) core as required by the expansion rules.
+                for (int x : inside_P[deltaP]) {
+                    if (!graph.adj_map[u].count(x)) { valid = false; break; }
                 }
-                for (int x : inside_P[v_star_degree + 1]) { // lemma 4
-                    if (!graph.adj_map[u].count(x) && x < u) {
-                        valid = false;
-                        break;
-                    }
-                }
+
+                // (2) Lemma 4-style lex constraint within the (δ(P)+1) bucket:
+                //     For any x in the same bucket with x < u, u must be adjacent to x.
+                //     This preserves the original ordering rule and prevents duplicates.
                 if (valid) {
-                    children.push(u);
-                    c++;
+                    for (int x : inside_P[targetDeg]) {
+                        if (x < u && !graph.adj_map[u].count(x)) { valid = false; break; }
+                    }
                 }
+
+                if (!valid) continue;
+
+                // Passed all checks: add as a Type-3 child
+                children.push_back(u);
+                ++c;
             }
         }
     }
+
 
     // Report maximal pseudo-cliques when requested (pce.c style check)
     if (/*maximal_only &&*/ total_nodes_in_P >= min_size && is_current_maximal()) {
@@ -910,9 +935,9 @@ void PseudoCliqueEnumerator::iter(int v) { //the "sophisticated process"
     // Iterate over children and add/remove them from inside_P
     while (c > 0) {
 
-        add_to_inside_P(children.top());
-        remove_from_inside_P(children.top());
-        children.pop();
+        add_to_inside_P(children.back());
+        remove_from_inside_P(children.back());
+        children.pop_back();
         c--;
     }
 }
