@@ -5,6 +5,9 @@ testGraphs.zip
 # Log files
 *.log
 
+# Documents
+*.pdf
+
 # Object files and build artifacts
 *.o
 *.obj
@@ -26,7 +29,10 @@ edgelist2binary
 
 # CMake build directories
 build/
+build_integrated/
 cmake-build-*/
+FPCE/
+pce12/
 
 # IDE files
 .vscode/

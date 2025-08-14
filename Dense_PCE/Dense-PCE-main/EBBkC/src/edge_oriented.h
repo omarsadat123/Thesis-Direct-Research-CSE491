@@ -93,6 +93,10 @@ public:
 //    static double truss_order(const char* r_file_name, const char* w_file_name);
     static double list_k_clique(const char* file_name);
     static double list_k_clique_parallel(const char* file_name);
+    // In-memory API: run EBBkC on directory `dir` with parameters (k,l),
+    // and return the found k-cliques in `out_cliques` without any file I/O.
+    static double list_k_clique_mem(const char* dir, int k, int l,
+                                    std::vector<std::vector<int>>& out_cliques);
 };
 
 

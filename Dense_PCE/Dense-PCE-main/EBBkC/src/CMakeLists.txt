@@ -68,10 +68,14 @@ add_library(graph-pre-processing truss/util/graph/graph_preprocessing.cpp)
 #build_truss_algorithm(truss "PKT_INTER=1" truss/decompose/pkt_merge.cpp)    ### Add BUCKET_BMP
 #target_compile_definitions(truss PRIVATE "DISABLE_BUCKET_OPT=1;BUCKET_BMP=1")
 
-add_executable(BBkC main.cpp def.cpp def.h edge_oriented.cpp edge_oriented.h set_operation.cpp set_operation.h
+add_library(ebbkc_core STATIC
+        def.cpp def.h edge_oriented.cpp edge_oriented.h set_operation.cpp set_operation.h
         truss/decompose/pkt_merge.cpp truss/decompose/iter_helper.cpp truss/decompose/pkt_tri_cnt_intermediate.cpp)
-target_link_libraries(BBkC PRIVATE graph-pre-processing)
-target_compile_definitions(BBkC PRIVATE "DISABLE_BUCKET_OPT=1;BUCKET_BMP=1;BMP_PROCESSED=1;BMP_QUEUE=1")
+target_link_libraries(ebbkc_core PRIVATE graph-pre-processing)
+target_compile_definitions(ebbkc_core PRIVATE "DISABLE_BUCKET_OPT=1;BUCKET_BMP=1;BMP_PROCESSED=1;BMP_QUEUE=1")
+
+add_executable(BBkC main.cpp)
+target_link_libraries(BBkC PRIVATE ebbkc_core)
 
 #target_compile_definitions(${name} PRIVATE ${macros})
 #target_compile_definitions(${name} PRIVATE "BMP_PROCESSED=1")

@@ -20,8 +20,9 @@ static long long total_build_main_ms = 0;
 static long long total_build_sub_ms  = 0;
 
 
-//extern keyword declares that these global variables are defined in another file (specifically, main.cpp), allows edge_oriented.cpp to access and modify the clique size K, the plex parameter L, and the total clique count N
-extern const int K, L; 
+//extern keyword declares that these global variables are defined elsewhere (e.g., main.cpp or embedding app).
+// Make them non-const so an embedding app can set K/L dynamically for in-memory API runs.
+extern int K, L; 
 extern unsigned long long N;
 std::vector<std::vector<int>> cliques_vec;
 
@@ -1016,6 +1017,31 @@ double EBBkC_t::list_k_clique(const char *file_name) {
     cliques_vec.clear();
 
     return runtime;
+}
+
+double EBBkC_t::list_k_clique_mem(const char* dir, int k, int l,
+                                  std::vector<std::vector<int>>& out_cliques) {
+    // Configure globals for this run
+    K = k;
+    L = l;
+    N = 0ULL;
+    cliques_vec.clear();
+
+    EBBkC_Graph_t G, g;
+    double t0 = omp_get_wtime();
+    G.truss_decompose(dir);
+    G.build(false);
+    g.truss_num = G.truss_num;
+    g.build(true);
+    for (int i = 0; i < G.e_size; i++) {
+        G.branch(i, &g);
+        g.EBBkC_plus_plus(K - 2, &N);
+    }
+    double ms = (double)(omp_get_wtime() - t0) * 1e3;
+
+    out_cliques.swap(cliques_vec);
+    cliques_vec.clear();
+    return ms;
 }
 
 double EBBkC_t::list_k_clique_parallel(const char *file_name) {

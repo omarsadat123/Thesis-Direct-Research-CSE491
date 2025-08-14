@@ -16,6 +16,12 @@
 #include <cerrno>
 #include <filesystem>
 #include <set> 
+#include "EBBkC/src/edge_oriented.h"
+
+// Globals required by EBBkC in library mode
+int K = 0;
+int L = 2;
+unsigned long long N = 0ULL;
 
 // Define PATH_MAX if not already defined
 #ifndef PATH_MAX
@@ -599,6 +605,8 @@ public:
 
 
     void enumerate_with_turan();  // Enumerate pseudo-cliques using Turan's theorem
+    // Enumerate pseudo-cliques using provided R-clique seeds (in-memory, no file I/O)
+    void enumerate_with_seeds(const std::vector<std::vector<int>>& r_cliques);
     // ADD THIS NEW PUBLIC METHOD for reporting unique pseudo-cliques
     void report_if_new(const std::vector<int>& clique) {
         if (clique.size() < this->min_size) return;
@@ -703,6 +711,32 @@ void PseudoCliqueEnumerator::enumerate_with_turan() {
 
         // --- C. Backtrack to reset the state for the next seed ---
         // Must remove vertices in the reverse order of addition.
+        for (auto it = sorted_clique.rbegin(); it != sorted_clique.rend(); ++it) {
+            remove_from_inside_P(*it);
+        }
+    }
+}
+
+// Enumerate using in-memory R-clique seeds (no file I/O)
+void PseudoCliqueEnumerator::enumerate_with_seeds(const std::vector<std::vector<int>>& r_cliques) {
+    if (r_cliques.empty()) {
+        std::cout << "No " << R << "-cliques found to extend." << std::endl;
+        return;
+    }
+
+    for (const auto& r_clique : r_cliques) {
+        auto sorted_clique = r_clique;
+        std::sort(sorted_clique.begin(), sorted_clique.end(), [&](int a, int b) {
+            return std::make_pair(graph.adj_map[a].size(), a) < std::make_pair(graph.adj_map[b].size(), b);
+        });
+
+        for (int vertex : sorted_clique) {
+            add_vertex_internal(vertex);
+        }
+
+        int last_vertex = sorted_clique.back();
+        iter(last_vertex);
+
         for (auto it = sorted_clique.rbegin(); it != sorted_clique.rend(); ++it) {
             remove_from_inside_P(*it);
         }
@@ -1048,32 +1082,36 @@ int main(int argc, char* argv[]) {
         std::cout<<"NOT Pruning by Order Bound: (l,θ)-pseudo-cliques exist as l (" << minimum << ") <= μ (" << mu << ")" << std::endl;
     }
 
-    /* ------------------------------------------------------------------
-    * 5. Launch BBkC.
-    * ----------------------------------------------------------------*/
-    std::string cmd = "./BBkC e \"" + dir_path + "\" " + std::to_string(R) + " " + std::to_string(2);
-    std::cout << "Executing: " << cmd << std::endl;
-    int ret = system(cmd.c_str());
-    if (ret != 0) {
-        std::cerr << "Error: BBkC failed to execute (return code: " << ret << ")" << std::endl;
-        return 1;
-    }
+    // /* ------------------------------------------------------------------
+    // * 5. Launch BBkC.
+    // * ----------------------------------------------------------------*/
+    // std::string cmd = "./BBkC e \"" + dir_path + "\" " + std::to_string(R) + " " + std::to_string(2);
+    // std::cout << "Executing: " << cmd << std::endl;
+    // int ret = system(cmd.c_str());
+    // if (ret != 0) {
+    //     std::cerr << "Error: BBkC failed to execute (return code: " << ret << ")" << std::endl;
+    //     return 1;
+    // }
 
-    /* Optional: verify the seed file exists and is non-empty */
-    std::string clique_path = dir_path + "/cliques_K" + std::to_string(R);
-    {
-        std::ifstream fcheck(clique_path);
-        if (!fcheck.good()) {
-            std::cerr << "Error: expected seed file not found: " << clique_path << "\n";
-            return 1;
-        }
-        // quick non-empty check
-        std::string tmp;
-        if (!std::getline(fcheck, tmp)) {
-            std::cout << "BBkC produced zero " << R << "-cliques. Nothing to extend.\n";
-            return 0;
-        }
-    }
+    // /* Optional: verify the seed file exists and is non-empty */
+    // std::string clique_path = dir_path + "/cliques_K" + std::to_string(R);
+    // {
+    //     std::ifstream fcheck(clique_path);
+    //     if (!fcheck.good()) {
+    //         std::cerr << "Error: expected seed file not found: " << clique_path << "\n";
+    //         return 1;
+    //     }
+    //     // quick non-empty check
+    //     std::string tmp;
+    //     if (!std::getline(fcheck, tmp)) {
+    //         std::cout << "BBkC produced zero " << R << "-cliques. Nothing to extend.\n";
+    //         return 0;
+    //     }
+    // }
+
+    // 5. Get R-clique seeds in-memory via EBBkC
+    std::vector<std::vector<int>> r_cliques;
+    EBBkC_t::list_k_clique_mem(dir_path.c_str(), R, 2, r_cliques);
  
     if (maximum == std::numeric_limits<int>::max()) {
         maximum = static_cast<int>(graph.adj_map.size());
@@ -1084,7 +1122,8 @@ int main(int argc, char* argv[]) {
      //     PC.add_to_inside_P(node);
      //     PC.remove_from_inside_P(node);
      // }
-     PC.enumerate_with_turan();
+     //PC.enumerate_with_turan();
+     PC.enumerate_with_seeds(r_cliques);
 
     /* ------------------------------------------------------------------
      * 7. Display results.
