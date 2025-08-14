@@ -15,7 +15,7 @@ cmake ..
 make
 
 ./BBkC p /mnt/h/OneDrive\ -\ northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/dataset
-./
+
 # Cohesive_subgraph_book
 
 cd "/mnt/h/OneDrive - northsouth.edu/Desktop/Dense_PCE/CSE491-/Dense_PCE/Dense-PCE-main/EBBkC/Cohesive_subgraph_book/datasets"

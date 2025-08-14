@@ -54,19 +54,17 @@ class WindowsGraphPreprocessor:
     def _verify_tools(self):
         """Verify that required tools are available or can be emulated."""
         if self.is_windows:
-            logger.info("Windows detected - using internal preprocessing for BBkC step")
-            # BBkC preprocessing will be handled internally
+            if not self.wsl_available:
+                raise EnvironmentError("WSL not detected on Windows. BBkC/edgelist2binary require WSL on Windows.")
+            if not self.bbkc_path.exists():
+                raise FileNotFoundError(f"BBkC executable not found at {self.bbkc_path}")
         else:
             if not self.bbkc_path.exists():
                 raise FileNotFoundError(f"BBkC executable not found at {self.bbkc_path}")
         
         # Check edgelist2binary - if missing we will try WSL or fallback to internal
         if not self.edgelist2binary_path.exists():
-            logger.warning(f"edgelist2binary tool not found at {self.edgelist2binary_path}")
-            if self.is_windows and self.wsl_available:
-                logger.info("WSL detected; will attempt to run edgelist2binary via WSL")
-            else:
-                logger.info("Will use internal binary conversion")
+            raise FileNotFoundError(f"edgelist2binary tool not found at {self.edgelist2binary_path}")
         
         logger.info("Tool verification completed")
 
@@ -110,152 +108,38 @@ class WindowsGraphPreprocessor:
             logger.error(f"Error converting grh to edges: {e}")
             return False
     
-    def edges_to_clean_internal(self, edges_file, clean_file):
-        """Internal implementation of BBkC preprocessing for Windows."""
-        logger.info(f"Internal cleaning of edges file {edges_file}")
-        
-        try:
-            # Read all edges
-            edges = set()
-            max_node = -1
-            seen = set()
-            
-            with open(edges_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            parts = line.split()
-                            if len(parts) == 2:
-                                u, v = int(parts[0]), int(parts[1])
-                                # Remove self-loops and duplicates
-                                if u != v:
-                                    a, b = (u, v) if u < v else (v, u)
-                                    if (a, b) not in seen:
-                                        edges.add((a, b))
-                                        seen.add((a, b))
-                                        max_node = max(max_node, a, b)
-                        except ValueError:
-                            logger.warning(f"Skipping invalid edge: {line}")
-            
-            # Write cleaned edges
-            with open(clean_file, 'w') as f:
-                for u, v in sorted(edges):
-                    f.write(f"{u} {v}\n")
-                f.write("\n")  # BBkC adds a trailing empty line
-
-            # Additional: generate b_adj.bin/b_degree.bin via WSL edgelist2binary when available
-            # to ensure BBkC compatibility in later stages (optional early creation)
-            try:
-                if self.is_windows and self.wsl_available and self.edgelist2binary_path.exists():
-                    self.clean_to_binary(clean_file, Path(clean_file).parent)
-            except Exception:
-                pass
-            
-            logger.info(f"Successfully created clean file: {clean_file}")
-            logger.info(f"Processed {len(edges)} unique edges, max node ID: {max_node}")
-            return clean_file
-            
-        except Exception as e:
-            logger.error(f"Error in internal edges cleaning: {e}")
-            return False
-    
     def edges_to_clean(self, edges_file, output_dir):
         """Clean edges using BBkC preprocessing or internal method."""
         clean_file = Path(output_dir) / f"{Path(edges_file).stem}.clean"
         
-        if self.is_windows or not self.bbkc_path.exists():
-            # Use internal preprocessing
-            return self.edges_to_clean_internal(edges_file, clean_file)
-        else:
-            # Use BBkC (Linux/WSL)
-            logger.info(f"Cleaning edges file {edges_file} using BBkC")
-            
-            try:
+        # Strictly use BBkC only
+        logger.info(f"Cleaning edges file {edges_file} using BBkC")
+        try:
+            if self.is_windows:
+                # Use WSL to run BBkC
+                linux_bbkc = self._to_wsl_path(self.bbkc_path)
+                linux_edges = self._to_wsl_path(Path(edges_file))
+                wsl_cmd = f"{linux_bbkc} p {linux_edges}"
+                logger.info(f"Running via WSL: {wsl_cmd}")
+                result = subprocess.run(["wsl", "bash", "-lc", wsl_cmd], capture_output=True, text=True)
+            else:
                 cmd = [str(self.bbkc_path), "p", str(edges_file)]
                 logger.info(f"Running command: {' '.join(cmd)}")
                 result = subprocess.run(cmd, capture_output=True, text=True, cwd=output_dir)
-                
-                if result.returncode != 0:
-                    logger.error(f"BBkC preprocessing failed: {result.stderr}")
-                    logger.info("Falling back to internal preprocessing")
-                    return self.edges_to_clean_internal(edges_file, clean_file)
-                
-                if clean_file.exists():
-                    logger.info(f"Successfully created clean file: {clean_file}")
-                    return clean_file
-                else:
-                    logger.error("Clean file was not created by BBkC")
-                    return self.edges_to_clean_internal(edges_file, clean_file)
-                    
-            except Exception as e:
-                logger.error(f"Error running BBkC: {e}")
-                logger.info("Falling back to internal preprocessing")
-                return self.edges_to_clean_internal(edges_file, clean_file)
-    
-    def clean_to_binary_internal(self, clean_file, output_dir):
-        """Internal binary conversion implementation."""
-        logger.info(f"Internal binary conversion of {clean_file}")
-        
-        try:
-            # Read graph structure
-            edges = []
-            nodes = set()
-            
-            with open(clean_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            u, v = map(int, line.split())
-                            edges.append((u, v))
-                            nodes.update([u, v])
-                        except ValueError:
-                            pass  # Skip invalid lines
-            
-            if not nodes:
-                logger.error("No valid edges found in clean file")
+
+            if result.returncode != 0:
+                logger.error(f"BBkC preprocessing failed: {result.stderr or result.stdout}")
                 return False
-            
-            # Create adjacency structure
-            max_node = max(nodes)
-            adj_list = [[] for _ in range(max_node + 1)]
-            degrees = [0] * (max_node + 1)
-            
-            for u, v in edges:
-                adj_list[u].append(v)
-                adj_list[v].append(u)
-                degrees[u] += 1
-                degrees[v] += 1
-            
-            # Sort adjacency lists for consistency
-            for i in range(len(adj_list)):
-                adj_list[i].sort()
-            
-            # Write binary adjacency file (simplified format)
-            b_adj_file = Path(output_dir) / "b_adj.bin"
-            with open(b_adj_file, 'wb') as f:
-                # Write number of nodes
-                f.write(len(adj_list).to_bytes(4, 'little'))
-                # Write adjacency lists
-                for neighbors in adj_list:
-                    f.write(len(neighbors).to_bytes(4, 'little'))
-                    for neighbor in neighbors:
-                        f.write(neighbor.to_bytes(4, 'little'))
-            
-            # Write binary degree file
-            b_degree_file = Path(output_dir) / "b_degree.bin"
-            with open(b_degree_file, 'wb') as f:
-                f.write(len(degrees).to_bytes(4, 'little'))
-                for degree in degrees:
-                    f.write(degree.to_bytes(4, 'little'))
-            
-            logger.info("Successfully created binary files: b_adj.bin and b_degree.bin")
-            logger.info(f"Graph: {len(nodes)} nodes, {len(edges)} edges")
-            return True
-            
+
+            if clean_file.exists():
+                logger.info(f"Successfully created clean file: {clean_file}")
+                return clean_file
+            else:
+                logger.error("Clean file was not created by BBkC")
+                return False
+
         except Exception as e:
-            logger.error(f"Error in internal binary conversion: {e}")
+            logger.error(f"Error running BBkC: {e}")
             return False
     
     def clean_to_binary(self, clean_file, output_dir):
@@ -263,7 +147,6 @@ class WindowsGraphPreprocessor:
         Preference order:
           1) Native edgelist2binary (Linux/macOS)
           2) WSL edgelist2binary (Windows with WSL)
-          3) Internal fallback writer (compatibility, not for BBkC)
         """
         clean_path = Path(clean_file)
         out_dir = Path(output_dir)
@@ -304,9 +187,8 @@ class WindowsGraphPreprocessor:
             except Exception as e:
                 logger.warning(f"WSL conversion error: {e}")
 
-        # 3) Fallback: internal writer (may not be compatible with BBkC)
-        logger.info("Falling back to internal binary conversion (BBkC may not accept this format)")
-        return self.clean_to_binary_internal(clean_file, output_dir)
+        logger.error("edgelist2binary not available or failed. Cannot produce binaries.")
+        return False
     
     def process_single_graph(self, grh_file, output_dir=None):
         """Process a single graph file through the complete pipeline."""

@@ -1,0 +1,70 @@
+# Test graphs and datasets
+testGraphs/
+testGraphs.zip
+
+# Log files
+*.log
+
+# Object files and build artifacts
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+*.dll
+*.dylib
+
+# Compiled binaries
+dense-pce
+dense-pce-mod
+dense-pce-mod-edge
+dense-pce-mod-edge-order
+dense-pce-edge
+BBkC
+edgelist2binary
+
+# CMake build directories
+build/
+cmake-build-*/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Output directories
+test_output_*/
+output_*/

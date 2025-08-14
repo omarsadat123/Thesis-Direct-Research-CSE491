@@ -16,7 +16,6 @@
 
 
 #include <chrono>
-
 static long long total_build_main_ms = 0;
 static long long total_build_sub_ms  = 0;
 
@@ -229,11 +228,10 @@ void EBBkC_Graph_t::build(bool sub) { //allocates and initializes all the data s
     auto build_duration = std::chrono::duration_cast<std::chrono::milliseconds>(build_end - build_start).count();
     if (!sub) {
         total_build_main_ms += build_duration;
-        printf("[DEBUG] build(main) took %lld ms\n", build_duration);
+        printf("[DEBUG] build(main) took %ld ms\n", build_duration);
     } else {
         total_build_sub_ms += build_duration;
-        // If you want per-subgraph builds printed, uncomment:
-        printf("[DEBUG] build(sub) took %lld ms\n", build_duration);
+        printf("[DEBUG] build(sub) took %ld ms\n", build_duration);
     }
 }
 
@@ -997,6 +995,7 @@ double EBBkC_t::list_k_clique(const char *file_name) {
     printf("[DEBUG] Total build(main) time: %lld ms\n", total_build_main_ms);
     printf("[DEBUG] Total build(sub) time: %lld ms\n", total_build_sub_ms);
     printf("[DEBUG] Total build time: %lld ms\n", total_build_main_ms + total_build_sub_ms);
+    printf("[DEBUG] Average build(sub) time: %.2f ms\n", G.e_size ? (double)total_build_sub_ms / G.e_size : 0.0);
 
 
     // Modified output path to include K in filename

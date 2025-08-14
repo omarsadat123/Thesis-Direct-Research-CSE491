@@ -205,6 +205,73 @@ public:
             }
         }
     }
+
+    // Load graph from BBkC binaries produced by Cohesive_subgraph_book (b_degree.bin, b_adj.bin)
+    // dir should be the directory containing the binaries; original_graph_path is kept for downstream path logic
+    void read_graph_from_bbkcbinaries(const std::string& dir, const std::string& original_graph_path) {
+        graph_file_path = original_graph_path;
+
+        std::filesystem::path deg_path = std::filesystem::path(dir) / "b_degree.bin";
+        std::filesystem::path adj_path = std::filesystem::path(dir) / "b_adj.bin";
+
+        std::ifstream deg_file(deg_path, std::ios::binary);
+        std::ifstream adj_file(adj_path, std::ios::binary);
+        if (!deg_file.is_open() || !adj_file.is_open()) {
+            std::cerr << "Error: Could not open BBkC binaries in directory " << dir << std::endl;
+            return;
+        }
+
+        // b_degree.bin layout: [ui tt][ui n][ui m][ui degree[0..n-1]]
+        uint32_t tt = 0;
+        uint32_t n = 0;
+        uint32_t m = 0;
+        deg_file.read(reinterpret_cast<char*>(&tt), sizeof(uint32_t));
+        deg_file.read(reinterpret_cast<char*>(&n), sizeof(uint32_t));
+        deg_file.read(reinterpret_cast<char*>(&m), sizeof(uint32_t));
+        if (!deg_file.good()) {
+            std::cerr << "Error: Failed reading degree header from " << deg_path.string() << std::endl;
+            return;
+        }
+        if (tt != sizeof(uint32_t)) {
+            std::cerr << "Warning: Unexpected ui size header in b_degree.bin (" << tt << ")" << std::endl;
+        }
+
+        std::vector<uint32_t> degrees(n);
+        if (n > 0) {
+            deg_file.read(reinterpret_cast<char*>(degrees.data()), static_cast<std::streamsize>(n * sizeof(uint32_t)));
+            if (!deg_file.good()) {
+                std::cerr << "Error: Failed reading degree array from " << deg_path.string() << std::endl;
+                return;
+            }
+        }
+
+        // Prepare adjacency container
+        adj_map.clear();
+        adj_map.resize(n);
+        total_nodes = static_cast<int>(n);
+
+        // Read neighbors sequentially from b_adj.bin; length should be m entries
+        uint64_t consumed = 0;
+        for (uint32_t u = 0; u < n; ++u) {
+            uint32_t du = degrees[u];
+            for (uint32_t k = 0; k < du; ++k) {
+                uint32_t v;
+                adj_file.read(reinterpret_cast<char*>(&v), sizeof(uint32_t));
+                if (!adj_file.good()) {
+                    std::cerr << "Error: Unexpected EOF in b_adj.bin while reading neighbors (u=" << u << ")" << std::endl;
+                    return;
+                }
+                // Add as undirected; b_adj already contains both directions, but map insert is idempotent
+                add_edge(static_cast<int>(u), static_cast<int>(v));
+                consumed++;
+            }
+        }
+
+        // Optional sanity check
+        if (consumed != m) {
+            std::cerr << "Warning: Consumed neighbor count (" << consumed << ") != header m (" << m << ")" << std::endl;
+        }
+    }
 };
 
 class PseudoCliqueEnumerator {
@@ -821,7 +888,16 @@ int main(int argc, char* argv[]) {
      *     as in your original code.)
      * ----------------------------------------------------------------*/
     Graph graph;
-    graph.read_graph_from_file(filename);
+    // Try to load BBkC binaries from the same directory as the provided .grh path
+    std::string bin_dir = dir_path;
+    std::filesystem::path bdeg = std::filesystem::path(bin_dir) / "b_degree.bin";
+    std::filesystem::path badj = std::filesystem::path(bin_dir) / "b_adj.bin";
+    if (std::filesystem::exists(bdeg) && std::filesystem::exists(badj)) {
+        std::cout << "Detected BBkC binaries in: " << bin_dir << ", loading graph from binaries..." << std::endl;
+        graph.read_graph_from_bbkcbinaries(bin_dir, filename);
+    } else {
+        graph.read_graph_from_file(filename);
+    }
     graph.compute_core_numbers();
 
     if (maximum == std::numeric_limits<int>::max()) {
