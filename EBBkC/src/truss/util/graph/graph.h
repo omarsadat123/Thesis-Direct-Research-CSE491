@@ -30,6 +30,8 @@ typedef struct {
 #ifdef NUMA_EID
     eid_t *eid2;
 #endif
+    // true if adj/num_edges are borrowed from caller and must not be freed by free_graph
+    bool borrowed = false;
 } graph_t;
 
 //Define an Edge data type

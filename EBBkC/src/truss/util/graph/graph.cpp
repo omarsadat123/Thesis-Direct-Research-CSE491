@@ -13,18 +13,17 @@
 #include "../../decompose/parallel_all_edge_cnc.h"
 
 void free_graph(graph_t *g) {
-    if (g->adj != nullptr)
-        free(g->adj);
-
-    if (g->num_edges != nullptr)
-        free(g->num_edges);
-
+    if (!g) return;
+    if (!g->borrowed) {
+        if (g->adj != nullptr)
+            free(g->adj);
+        if (g->num_edges != nullptr)
+            free(g->num_edges);
+    }
     if (g->eid != nullptr)
         free(g->eid);
-
     if (g->edge_rank != nullptr)
         free(g->edge_rank);
-
     if (g->edge_truss != nullptr)
         free(g->edge_truss);
 }

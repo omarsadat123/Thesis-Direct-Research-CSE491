@@ -1,6 +1,7 @@
 # Test graphs and datasets
-testGraphs/
+testGraph/
 testGraphs.zip
+GraphDataset/
 
 # Log files
 *.log

@@ -2,6 +2,7 @@
 #define DESCOL_EBBKC_H
 #include "def.h"
 #include <vector>
+#include <functional>
 
 using namespace std;
 
@@ -63,6 +64,8 @@ public:
     std::vector<std::pair<int,int>> branch_ends; // size K+1 
     // In EBBkC_Graph_t declaration
     std::vector<int> current_clique;  // Track vertices in current clique
+    // Streaming sink for found cliques (global vertex IDs). If set, results are streamed.
+    std::function<void(const std::vector<int>&)> clique_sink;
 
     EBBkC_Graph_t();
     ~EBBkC_Graph_t();
@@ -96,6 +99,15 @@ public:
     // In-memory API: run EBBkC on directory `dir` with parameters (k,l),
     // and return the found k-cliques in `out_cliques` without any file I/O.
     static double list_k_clique_mem(const char* dir, int k, int l, std::vector<std::vector<int>>& out_cliques);
+    // Streaming API: run EBBkC and invoke `sink` for each found k-clique; retains O(1) memory.
+    static double list_k_clique_mem_stream(const char* dir, int k, int l, const std::function<void(const std::vector<int>&)>& sink);
+    // CSR streaming API: avoid disk load by passing CSR arrays directly (borrowed, not freed)
+    static double list_k_clique_mem_stream_from_csr(
+        uint32_t n, uint32_t m,
+        const uint32_t* node_off,
+        const int* edge_dst,
+        int k, int l,
+        const std::function<void(const std::vector<int>&)>& sink);
 };
 
 

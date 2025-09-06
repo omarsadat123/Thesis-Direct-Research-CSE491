@@ -17,15 +17,43 @@ PARALLEL_JOBS=1
 # Algorithm parameters with defaults
 MIN_SIZE=10
 THETA=0.9
-while getopts "j:l:t:" opt; do
+# Graph directory with default
+GRAPH_DIR="testGraphs"
+
+# Show usage if help requested
+show_usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo "Options:"
+    echo "  -d DIR    Directory containing graph subdirectories (default: testGraphs)"
+    echo "  -j N      Number of parallel jobs (default: 1)"
+    echo "  -l SIZE   Minimum pseudo-clique size (default: 10)"
+    echo "  -t THETA  Density threshold (default: 0.9)"
+    echo "  -h        Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0                                    # Use defaults"
+    echo "  $0 -d my_graphs -j 4 -l 8 -t 0.85   # Custom directory, 4 parallel jobs, l=8, theta=0.85"
+    echo "  $0 -d /path/to/graphs -j 8           # Custom path, 8 parallel jobs"
+}
+
+while getopts "j:l:t:d:h" opt; do
 	case $opt in
 		j) PARALLEL_JOBS="$OPTARG" ;;
 		l) MIN_SIZE="$OPTARG" ;;
 		t) THETA="$OPTARG" ;;
-		*) ;;
+		d) GRAPH_DIR="$OPTARG" ;;
+		h) show_usage; exit 0 ;;
+		*) echo "Invalid option: -$OPTARG" >&2; show_usage; exit 1 ;;
 	esac
 done
 shift $((OPTIND - 1))
+
+# Validate graph directory exists
+if [[ ! -d "$GRAPH_DIR" ]]; then
+    echo "Error: Graph directory '$GRAPH_DIR' not found" | tee -a "$output_file"
+    echo "Please specify a valid directory with -d option" | tee -a "$output_file"
+    exit 1
+fi
 
 # Avoid oversubscription inside libraries when running multiple processes
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
@@ -88,7 +116,7 @@ run_and_report() {
 }
 
 # The base directory containing subfolders with .grh files
-graph_directory="testGraphs"
+graph_directory="$GRAPH_DIR"
 
 # Executables
 integrated_exec="./build_integrated/dense-pce-mod-edge-order-integrated"
@@ -131,7 +159,16 @@ handle_dir() {
 	fi
 }
 
-# Iterate each subdirectory in testGraphs and process, optionally in parallel
+# Log run parameters
+echo "Run parameters:" | tee -a "$output_file"
+echo "  Graph directory: $GRAPH_DIR" | tee -a "$output_file"
+echo "  Parallel jobs: $PARALLEL_JOBS" | tee -a "$output_file"
+echo "  Minimum size: $MIN_SIZE" | tee -a "$output_file"
+echo "  Theta: $THETA" | tee -a "$output_file"
+echo "  Logs directory: $logs_dir" | tee -a "$output_file"
+echo "" | tee -a "$output_file"
+
+# Iterate each subdirectory in graph directory and process, optionally in parallel
 for dir in "$graph_directory"/*; do
 	if [[ -d "$dir" ]]; then
 		if [[ "$PARALLEL_JOBS" -gt 1 ]]; then

@@ -54,18 +54,23 @@ std::vector<std::vector<int>> read_clique_file(const std::string& path) {
 class Graph {
 public:
     Graph() = default;
-    // std::unordered_map<int, std::unordered_map<int, bool> > adj_map;
-    std::vector<std::unordered_map<int, bool>> adj_map; //unordered_set
+    // Compact adjacency: sorted vector per vertex
+    std::vector<std::vector<int>> adj_map;
 
     int degeneracy = 0; // Store ξ_G (maximum coreness)
     int total_nodes = 0 ;
+    // CSR view for EBBkC zero-copy entry
+    std::vector<uint32_t> csr_node_off;
+    std::vector<int> csr_edge_dst;
+    uint32_t csr_n = 0;
+    uint32_t csr_m = 0;
 
     void add_edge(int u, int v) {
-        if (u >= adj_map.size() || v >= adj_map.size()) {
-           adj_map.resize(std::max(u, v) + 1);
-            }
-        adj_map[u][v] = true; 
-        adj_map[v][u] = true;
+        if (u >= (int)adj_map.size() || v >= (int)adj_map.size()) {
+            adj_map.resize(std::max(u, v) + 1);
+        }
+        adj_map[u].push_back(v);
+        adj_map[v].push_back(u);
     }
 
     void add_empty_edge(int u) { //placeholder for empty edge
@@ -74,15 +79,7 @@ public:
 
     void print_graph() const { //prints out each vertex and its list of neighbors
         for (size_t i = 0; i < adj_map.size(); ++i) {
-            const auto& neighbors_map = adj_map[i]; //unordered_map
-            std::vector<int> neighbors;
-
-            for (const auto& neighbor : neighbors_map) {
-                neighbors.push_back(neighbor.first); //{2, true}
-            }
-
-            std::sort(neighbors.begin(), neighbors.end());
-
+            const auto& neighbors = adj_map[i];
             std::cout << "Node " << i << " : ";
             for (int neighbor : neighbors) {
                 std::cout << neighbor << " ";
@@ -108,12 +105,25 @@ public:
     // }
 
     std::string graph_file_path;
-    void read_graph_from_file(const std::string& filename) {
+    void finalize_adjacency() {
+        for (auto& nbrs : adj_map) {
+            std::sort(nbrs.begin(), nbrs.end());
+            nbrs.erase(std::unique(nbrs.begin(), nbrs.end()), nbrs.end());
+        }
+    }
+
+    bool has_edge(int u, int v) const {
+        if (u < 0 || v < 0 || u >= (int)adj_map.size()) return false;
+        const auto& nbrs = adj_map[u];
+        return std::binary_search(nbrs.begin(), nbrs.end(), v);
+    }
+
+    bool read_graph_from_file(const std::string& filename) {
         graph_file_path = filename;   // <- add this line
         std::ifstream file(filename);
         if (!file.is_open()) {
             std::cerr << "Error: Could not open file " << filename << std::endl;
-            return;
+            return false;
         }
 
         int current_vertex = 0;
@@ -129,20 +139,19 @@ public:
             }
 
             std::stringstream ss(line); //helps split the line of text into individual numbers
-            // std::string value;
-            // while (std::getline(ss, value, ' ')) {
-            //     int neighbor = std::stoi(value); //string into integer
             int neighbor;
             while (ss >> neighbor) {
                 add_edge(current_vertex, neighbor);
             }
             current_vertex++;
         }
+        finalize_adjacency();
+        return true;
     }
 
     // Load graph from BBkC binaries produced by Cohesive_subgraph_book (b_degree.bin, b_adj.bin)
     // dir should be the directory containing the binaries; original_graph_path is kept for downstream path logic
-    void read_graph_from_bbkcbinaries(const std::string& dir, const std::string& original_graph_path) {
+    bool read_graph_from_bbkcbinaries(const std::string& dir, const std::string& original_graph_path) {
         graph_file_path = original_graph_path;
 
         std::filesystem::path deg_path = std::filesystem::path(dir) / "b_degree.bin";
@@ -152,7 +161,7 @@ public:
         std::ifstream adj_file(adj_path, std::ios::binary);
         if (!deg_file.is_open() || !adj_file.is_open()) {
             std::cerr << "Error: Could not open BBkC binaries in directory " << dir << std::endl;
-            return;
+            return false;
         }
 
         // b_degree.bin layout: [ui tt][ui n][ui m][ui degree[0..n-1]]
@@ -164,7 +173,7 @@ public:
         deg_file.read(reinterpret_cast<char*>(&m), sizeof(uint32_t));
         if (!deg_file.good()) {
             std::cerr << "Error: Failed reading degree header from " << deg_path.string() << std::endl;
-            return;
+            return false;
         }
         if (tt != sizeof(uint32_t)) {
             std::cerr << "Warning: Unexpected ui size header in b_degree.bin (" << tt << ")" << std::endl;
@@ -175,7 +184,7 @@ public:
             deg_file.read(reinterpret_cast<char*>(degrees.data()), static_cast<std::streamsize>(n * sizeof(uint32_t)));
             if (!deg_file.good()) {
                 std::cerr << "Error: Failed reading degree array from " << deg_path.string() << std::endl;
-                return;
+                return false;
             }
         }
 
@@ -183,9 +192,20 @@ public:
         adj_map.clear();
         adj_map.resize(n);
         total_nodes = static_cast<int>(n);
+        // Prepare CSR arrays for EBBkC
+        csr_n = n;
+        csr_m = m;
+        csr_node_off.assign(n + 1, 0);
+        for (uint32_t i = 0; i < n; ++i) csr_node_off[i + 1] = csr_node_off[i] + degrees[i];
+        if (csr_node_off[n] != m) {
+            std::cerr << "Warning: degree prefix sum != m (" << csr_node_off[n] << " vs " << m << ")" << std::endl;
+            csr_m = csr_node_off[n];
+        }
+        csr_edge_dst.resize(csr_m);
 
         // Read neighbors sequentially from b_adj.bin; length should be m entries
         uint64_t consumed = 0;
+        uint64_t fill_idx = 0;
         for (uint32_t u = 0; u < n; ++u) {
             uint32_t du = degrees[u];
             for (uint32_t k = 0; k < du; ++k) {
@@ -193,11 +213,12 @@ public:
                 adj_file.read(reinterpret_cast<char*>(&v), sizeof(uint32_t));
                 if (!adj_file.good()) {
                     std::cerr << "Error: Unexpected EOF in b_adj.bin while reading neighbors (u=" << u << ")" << std::endl;
-                    return;
+                    return false;
                 }
                 // Add as undirected; b_adj already contains both directions, but map insert is idempotent
                 add_edge(static_cast<int>(u), static_cast<int>(v));
                 consumed++;
+                if (fill_idx < csr_edge_dst.size()) csr_edge_dst[fill_idx++] = static_cast<int>(v);
             }
         }
 
@@ -205,6 +226,8 @@ public:
         if (consumed != m) {
             std::cerr << "Warning: Consumed neighbor count (" << consumed << ") != header m (" << m << ")" << std::endl;
         }
+        finalize_adjacency();
+        return true;
     }
 
     std::vector<int> core_numbers;
@@ -257,8 +280,7 @@ public:
             core_numbers[v] = deg[v];
             
             // Process neighbors
-            for (const auto& neighbor : adj_map[v]) {
-                unsigned int u = neighbor.first;
+            for (int u : adj_map[v]) {
                 if (deg[u] > deg[v]) {
                     unsigned int du = deg[u];
                     unsigned int pu = pos[u];
@@ -386,9 +408,7 @@ private:
 
     
         //Working for v's neighbors
-        for (const auto& adj_v_ite : graph.adj_map[v]) {
-            
-            int adj_v = adj_v_ite.first;
+        for (int adj_v : graph.adj_map[v]) {
             // std::cout << "    ite: " << adj_v  << "\n";
     
             //Process neighbors of vertex v that are already in P
@@ -491,15 +511,6 @@ public:
         std::cout << "total nodes: " << total_nodes << " "   << "\n";
 
         this->max_size = max_size != -1 ? max_size : total_nodes; //max_size to total nodes if not specified
-        // int mu = graph.compute_order_bound(theta, graph.degeneracy);
-        // if (min_size > mu) {
-        //     std::cout << "Pruning by Order Bound: No (l,θ)-pseudo-cliques exist as l (" << min_size << ") > μ (" << mu << ")" << std::endl;
-        //     pseudo_cliques.resize(max_size + 1);
-        //     pseudo_cliques_count.resize(max_size + 1, 0);
-        //     inside_P.resize(max_size + 1);
-        //     neighbors_and_P.resize(max_size + 1);
-        //     return;
-        // }
 
         pseudo_cliques.resize(max_size + 1); //Stores actual pseudo-cliques found, grouped by size e.g. pseudo_cliques[2] = {{0,1}, {1,2}, {2,3}} pseudo_cliques[3] = {{0,1,2}, {1,2,3}}
 
@@ -508,14 +519,6 @@ public:
         inside_P.resize(max_size + 1); //Groups vertices currently in pseudo-clique P by their degree within P e.g. inside_P[2] = {{0,1}, {1,2}, {2,3}}
 
         neighbors_and_P.resize(max_size + 1); //Groups ALL vertices by their degree with respect to current pseudo-clique P e.g. neighbors_and_P[2] = {7, 8} Vertices 7,8 have 2 connections to P
-
-        //Solves: Vector Reallocation
-        int reserve_size = total_nodes / 4 ;
-        for (int i = 0; i < max_size; ++i) {
-            inside_P[i].reserve(reserve_size); //add up to reserve_size elements later
-            neighbors_and_P[i].reserve(reserve_size); 
-
-        } 
         //initializing the degree-based tracking system
         std::vector<int> keys(graph.total_nodes); //keys = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
         std::iota(keys.begin(), keys.end(), 0); //Fills the vector with sequential integers starting from 0
@@ -682,12 +685,7 @@ void PseudoCliqueEnumerator::enumerate_with_turan(const std::vector<int>& turan_
         v_star = *std::min_element(sorted_clique.begin(), sorted_clique.end()); // safe fallback
     }
 
-    // D) Canonicalize seed
-    const int seed_min = *std::min_element(sorted_clique.begin(), sorted_clique.end());
-    if (v_star != seed_min) {
-        for (auto it = sorted_clique.rbegin(); it != sorted_clique.rend(); ++it) remove_from_inside_P(*it);
-        return;
-    }
+    // No extra seed canonicalization here; match enumerate_with_seeds semantics
 
     // E) Recurse from true v*
     iter(v_star);
@@ -779,12 +777,12 @@ void PseudoCliqueEnumerator::remove_from_inside_P(int v) {
 
 
         //update all of v's neighbors' info
-        for (const auto& adj_v : graph.adj_map[v]) {
+        for (int adj_u : graph.adj_map[v]) {
             // Process neighbors of vertex v that are also in P
-            if (tracks[adj_v.first][0]) {
+            if (tracks[adj_u][0]) {
                 total_edges_in_P--;
-                int degree = tracks[adj_v.first][1];
-                int pos = tracks[adj_v.first][3];
+                int degree = tracks[adj_u][1];
+                int pos = tracks[adj_u][3];
 
                 if (!inside_P[degree].empty()) {
                     int last_node = inside_P[degree].back();
@@ -793,14 +791,14 @@ void PseudoCliqueEnumerator::remove_from_inside_P(int v) {
                     tracks[last_node][3] = pos;
                 }
 
-                inside_P[degree - 1].push_back(adj_v.first);
-                tracks[adj_v.first][3] = inside_P[degree - 1].size() - 1;
-                tracks[adj_v.first][1]--;
+                inside_P[degree - 1].push_back(adj_u);
+                tracks[adj_u][3] = inside_P[degree - 1].size() - 1;
+                tracks[adj_u][1]--;
             }
 
             // Process neighbors of vertex v that are not in P
-            int degree_np = tracks[adj_v.first][2]; // Get degree of neighbor adj_v wrt P
-            int pos_np = tracks[adj_v.first][4]; // Get position of neighbor adj_v in neighbors_and_P
+            int degree_np = tracks[adj_u][2]; // Get degree of neighbor wrt P
+            int pos_np = tracks[adj_u][4]; // Get position in neighbors_and_P
 
             if (!neighbors_and_P[degree_np].empty()) {
                 int last_node = neighbors_and_P[degree_np].back();
@@ -809,9 +807,9 @@ void PseudoCliqueEnumerator::remove_from_inside_P(int v) {
                 tracks[last_node][4] = pos_np;
             }
 
-            neighbors_and_P[degree_np - 1].push_back(adj_v.first); // Add neighbor to lower degree bucket
-            tracks[adj_v.first][4] = neighbors_and_P[degree_np - 1].size() - 1; // Update position of neighbor in neighbors_and_P
-            tracks[adj_v.first][2]--; // Update degree of neighbor in neighbors_and_P
+            neighbors_and_P[degree_np - 1].push_back(adj_u); // Add neighbor to lower degree bucket
+            tracks[adj_u][4] = neighbors_and_P[degree_np - 1].size() - 1; // Update position of neighbor in neighbors_and_P
+            tracks[adj_u][2]--; // Update degree of neighbor in neighbors_and_P
         }
 
         total_nodes_in_P--;
@@ -861,10 +859,10 @@ void PseudoCliqueEnumerator::iter(int v) { //the "sophisticated process"
             children.push_back(u);
             c++;
         } 
-        else if (graph.adj_map[v].count(u)) { //if u>v, practical implementation of the main condition from Lemma 4: u <_K l(u, K).
+        else if (graph.has_edge(v, u)) { //if u>v, practical implementation of the main condition from Lemma 4: u <_K l(u, K).
             bool valid = true;
             for (int x : inside_P[v_star_degree]) { //iterating over same degree vertices
-                if (!graph.adj_map[u].count(x) && x < u) { //if u and x have edge and x is lexicographically smaller than u
+                if (!graph.has_edge(u, x) && x < u) { //if u and x have edge and x is lexicographically smaller than u
                     valid = false;
                     break;
                 }
@@ -896,7 +894,7 @@ void PseudoCliqueEnumerator::iter(int v) { //the "sophisticated process"
                 // Tie-breaks relative to v*:
                 //  - u must be adjacent to v*,
                 //  - and enforce canonical lex order u < v (equivalently: v > u)
-                if (!graph.adj_map[v].count(u) || !(v > u)) continue;
+                if (!graph.has_edge(v, u) || !(v > u)) continue;
 
                 bool valid = true;
 
@@ -904,7 +902,7 @@ void PseudoCliqueEnumerator::iter(int v) { //the "sophisticated process"
                 //     This ensures we only consider "next-layer" candidates that fully connect to the
                 //     current δ(P) core as required by the expansion rules.
                 for (int x : inside_P[deltaP]) {
-                    if (!graph.adj_map[u].count(x)) { valid = false; break; }
+                    if (!graph.has_edge(u, x)) { valid = false; break; }
                 }
 
                 // (2) Lemma 4-style lex constraint within the (δ(P)+1) bucket:
@@ -912,7 +910,7 @@ void PseudoCliqueEnumerator::iter(int v) { //the "sophisticated process"
                 //     This preserves the original ordering rule and prevents duplicates.
                 if (valid) {
                     for (int x : inside_P[targetDeg]) {
-                        if (x < u && !graph.adj_map[u].count(x)) { valid = false; break; }
+                        if (x < u && !graph.has_edge(u, x)) { valid = false; break; }
                     }
                 }
 
@@ -1002,11 +1000,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    /* ------------------------------------------------------------------
-     * 1. Re‑assemble the (possibly space‑containing) filename.
-     *    Every argument up to—but NOT including—the first that starts
-     *    with "--" is considered part of the path.
-     * ----------------------------------------------------------------*/
+    // 1. Re‑assemble the (possibly space‑containing) filename.
     std::vector<std::string> filename_parts;
     int arg_idx = 1;
     for (; arg_idx < argc; ++arg_idx) {
@@ -1025,13 +1019,10 @@ int main(int argc, char* argv[]) {
         filename += filename_parts[k];
     }
 
-    /* ------------------------------------------------------------------
-     * 2. Parse optional arguments that follow the filename.
-     * ----------------------------------------------------------------*/
+    // 2. Parse optional arguments that follow the filename.
     double theta = 1.0;
     int minimum   = 1;
     int maximum   = std::numeric_limits<int>::max();
-    //bool maximal_only = true;
 
     for (; arg_idx < argc; ++arg_idx) {
         std::string arg = argv[arg_idx];
@@ -1039,13 +1030,7 @@ int main(int argc, char* argv[]) {
             theta = std::stod(argv[++arg_idx]);
         } else if (arg == "--minimum" && arg_idx + 1 < argc) {
             minimum = std::stoi(argv[++arg_idx]);
-        } 
-        // else if (arg == "--maximum" && arg_idx + 1 < argc) {
-        //     maximum = std::stoi(argv[++arg_idx]);
-        // } 
-        //else if (arg == "--maximal") {
-            // no-op, always maximal mode}
-        else {
+        } else {
             std::cerr << "Unknown option: " << arg << std::endl;
             return 1;
         }
@@ -1060,112 +1045,92 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    /* ------------------------------------------------------------------
-     * 3. Compute R and show diagnostics.
-     * ----------------------------------------------------------------*/
+    // 3. Compute R and show diagnostics.
     int R = std::ceil(1.0 / (1.0 - theta * (minimum - 1) / static_cast<double>(minimum)));
     std::cout << "Computed R: " << R << std::endl;
 
-    /* ------------------------------------------------------------------
-     * 4. Derive directory path in a cross‑platform way.
-     * ----------------------------------------------------------------*/
+    // 4. Derive directory path in a cross‑platform way.
     std::filesystem::path p(filename);
     std::string dir_path = p.parent_path().empty() ? "." : p.parent_path().string();
     std::cout << "Directory path: " << dir_path << std::endl;
 
 
-    /* ------------------------------------------------------------------
-     * 6. Read the graph and enumerate pseudo‑cliques.
-     *    (Assumes Graph and PseudoCliqueEnumerator provide the same API
-     *     as in your original code.)
-     * ----------------------------------------------------------------*/
-     Graph graph;
-     // Try to load BBkC binaries from the same directory as the provided .grh path
-     {
-         std::filesystem::path bdeg = std::filesystem::path(dir_path) / "b_degree.bin";
-         std::filesystem::path badj = std::filesystem::path(dir_path) / "b_adj.bin";
-         if (std::filesystem::exists(bdeg) && std::filesystem::exists(badj)) {
-             std::cout << "Detected BBkC binaries in: " << dir_path << ", loading graph from binaries..." << std::endl;
-             graph.read_graph_from_bbkcbinaries(dir_path, filename);
-         } else {
-             graph.read_graph_from_file(filename);
-         }
-     }
-     graph.compute_core_numbers();
+    // 6. Read the graph and enumerate pseudo‑cliques.
+    Graph graph;
+    // Try to load BBkC binaries from the same directory as the provided .grh path
+    bool graph_loaded = false;
+    {
+        std::filesystem::path bdeg = std::filesystem::path(dir_path) / "b_degree.bin";
+        std::filesystem::path badj = std::filesystem::path(dir_path) / "b_adj.bin";
+        if (std::filesystem::exists(bdeg) && std::filesystem::exists(badj)) {
+            std::cout << "Detected BBkC binaries in: " << dir_path << ", loading graph from binaries..." << std::endl;
+            graph_loaded = graph.read_graph_from_bbkcbinaries(dir_path, filename);
+        } else {
+            graph_loaded = graph.read_graph_from_file(filename);
+        }
+    }
+    if (!graph_loaded) {
+        std::cerr << "Aborting: graph could not be loaded." << std::endl;
+        return 1;
+    }
+    graph.compute_core_numbers();
 
-     // NEW: do Order Bound here with the *real* degeneracy
+    // Order Bound here with the *real* degeneracy
     int mu = graph.compute_order_bound(theta, graph.degeneracy);
     if (minimum > mu) {
         std::cout << "Pruning by Order Bound: No (l,θ)-pseudo-cliques exist as l ("
                 << minimum << ") > μ (" << mu << ")\n";
-        return 0; // <-- bail out cleanly; don't call BBkC, don't construct PC
+        return 0; 
     }
     else{
         std::cout<<"NOT Pruning by Order Bound: (l,θ)-pseudo-cliques exist as l (" << minimum << ") <= μ (" << mu << ")" << std::endl;
     }
 
-    // /* ------------------------------------------------------------------
-    // * 5. Launch BBkC.
-    // * ----------------------------------------------------------------*/
-    // std::string cmd = "./BBkC e \"" + dir_path + "\" " + std::to_string(R) + " " + std::to_string(2);
-    // std::cout << "Executing: " << cmd << std::endl;
-    // int ret = system(cmd.c_str());
-    // if (ret != 0) {
-    //     std::cerr << "Error: BBkC failed to execute (return code: " << ret << ")" << std::endl;
-    //     return 1;
-    // }
-
-    // /* Optional: verify the seed file exists and is non-empty */
-    // std::string clique_path = dir_path + "/cliques_K" + std::to_string(R);
-    // {
-    //     std::ifstream fcheck(clique_path);
-    //     if (!fcheck.good()) {
-    //         std::cerr << "Error: expected seed file not found: " << clique_path << "\n";
-    //         return 1;
-    //     }
-    //     // quick non-empty check
-    //     std::string tmp;
-    //     if (!std::getline(fcheck, tmp)) {
-    //         std::cout << "BBkC produced zero " << R << "-cliques. Nothing to extend.\n";
-    //         return 0;
-    //     }
-    // }
-
-    // 5. Get R-clique seeds in-memory via EBBkC
-    std::vector<std::vector<int>> r_cliques;
-    EBBkC_t::list_k_clique_mem(dir_path.c_str(), R, 2, r_cliques);
- 
     if (maximum == std::numeric_limits<int>::max()) {
         maximum = static_cast<int>(graph.adj_map.size());
     }
+    // Clamp to order bound μ to cap |P| and reduce memory (bucket arrays sized to max_size+1)
+    maximum = std::min(maximum, mu);
  
-     PseudoCliqueEnumerator PC(graph, theta, minimum, maximum, R);
-     // for (size_t node = 0; node < graph.adj_map.size(); ++node) {
-     //     PC.add_to_inside_P(node);
-     //     PC.remove_from_inside_P(node);
-     // }
-     //PC.enumerate_with_turan();
-     PC.enumerate_with_seeds(r_cliques);
+    PseudoCliqueEnumerator PC(graph, theta, minimum, maximum, R);
 
-    /* ------------------------------------------------------------------
-     * 7. Display results.
-     * ----------------------------------------------------------------*/
-     std::vector<int> pseudo_clique_counts = PC.get_pseudo_cliques_count();
-     std::cout << (/*maximal_only ?*/ "Maximal pseudo-clique counts:") << std::endl;
-     bool found_any = false;
-     for (size_t sz = 0; sz < pseudo_clique_counts.size(); ++sz) {
-         if (pseudo_clique_counts[sz] > 0) {
-             std::cout << "Size " << sz << ": " << pseudo_clique_counts[sz] << "\n";
-             found_any = true;
-         }
-     }
+    // 5. Stream R-clique seeds via EBBkC and extend on the fly (O(1) memory)
+    if (!graph.csr_node_off.empty() && !graph.csr_edge_dst.empty()) {
+        EBBkC_t::list_k_clique_mem_stream_from_csr(
+            graph.csr_n,
+            graph.csr_m,
+            graph.csr_node_off.data(),
+            graph.csr_edge_dst.data(),
+            R, 2,
+            [&](const std::vector<int>& r_clique){ PC.enumerate_with_turan(r_clique); }
+        );
+    } else {
+        EBBkC_t::list_k_clique_mem_stream(
+            dir_path.c_str(), R, 2,
+            [&](const std::vector<int>& r_clique){ PC.enumerate_with_turan(r_clique); }
+        );
+    }
+
+    // 7. Display results.
+    std::vector<int> pseudo_clique_counts = PC.get_pseudo_cliques_count();
+    std::cout << "Maximal pseudo-clique counts:" << std::endl;
+    bool found_any = false;
+    unsigned long long total_pseudo_cliques = 0ULL;
+    for (size_t sz = 0; sz < pseudo_clique_counts.size(); ++sz) {
+        if (pseudo_clique_counts[sz] > 0) {
+            std::cout << "Size " << sz << ": " << pseudo_clique_counts[sz] << "\n";
+            found_any = true;
+        }
+        total_pseudo_cliques += static_cast<unsigned long long>(pseudo_clique_counts[sz]);
+    }
      
-     if (!found_any) {
-         std::cout << "(No pseudo-cliques found meeting the criteria)" << std::endl;
-     }
+    if (!found_any) {
+        std::cout << "(No pseudo-cliques found meeting the criteria)" << std::endl;
+    }
+    std::cout << "Total pseudo-cliques: " << total_pseudo_cliques << std::endl;
  
-     std::cout << "\nTotal Iterations: " << PC.get_iter_count() << std::endl;
-     std::cout << "#calls of PCE_iter saved by EDGE bound = "<< PC.get_edge_prunes() << "\n";
+    std::cout << "\nTotal Iterations: " << PC.get_iter_count() << std::endl;
+    std::cout << "#calls of saved by EDGE bound = "<< PC.get_edge_prunes() << "\n";
 
     return 0;
 }

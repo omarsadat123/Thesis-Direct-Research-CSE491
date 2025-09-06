@@ -573,7 +573,7 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
             // Add to current clique and store
             std::vector<int> full_clique = current_clique;
             full_clique.push_back(orig_w);
-            cliques_vec.push_back(full_clique);
+            if (clique_sink) clique_sink(full_clique); else cliques_vec.push_back(full_clique);
             (*cliques)++;
         }
         return;
@@ -605,7 +605,7 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
                 std::vector<int> full_clique = current_clique;
                 full_clique.push_back(this->new2old[u]);
                 full_clique.push_back(this->new2old[v]);
-                cliques_vec.push_back(full_clique);
+                if (clique_sink) clique_sink(full_clique); else cliques_vec.push_back(full_clique);
                 (*cliques)++;
             }
         }
@@ -629,7 +629,7 @@ void EBBkC_Graph_t::EBBkC_plus_plus(int l, unsigned long long *cliques) {
                         full_clique.push_back(this->new2old[u]);
                         full_clique.push_back(this->new2old[v]);
                         full_clique.push_back(this->new2old[w]);
-                        cliques_vec.push_back(full_clique);
+                        if (clique_sink) clique_sink(full_clique); else cliques_vec.push_back(full_clique);
                         (*cliques)++;
                     }
                 }
@@ -826,7 +826,7 @@ void EBBkC_Graph_t::EBBkC_Comb_list(int *list, int  list_size, int  start, int  
         for (int t = 0; t < k; t++) {
             full_clique.push_back(this->new2old[cur[t]]);
         }
-        cliques_vec.push_back(full_clique);
+        if (clique_sink) clique_sink(full_clique); else cliques_vec.push_back(full_clique);
         (*cliques)++;
         return;
     }
@@ -1031,6 +1031,8 @@ double EBBkC_t::list_k_clique_mem(const char* dir, int k, int l, std::vector<std
     G.build(false);
     g.truss_num = G.truss_num;
     g.build(true);
+    // Use default buffered mode: collect results
+    g.clique_sink = nullptr;
     for (int i = 0; i < G.e_size; i++) {
         G.branch(i, &g);
         g.EBBkC_plus_plus(K - 2, &N);
@@ -1044,6 +1046,158 @@ double EBBkC_t::list_k_clique_mem(const char* dir, int k, int l, std::vector<std
     printf("[DEBUG] Average build(sub) time: %.2f ms\n", G.e_size ? (double)total_build_sub_ms / G.e_size : 0.0);
 
     out_cliques.swap(cliques_vec);
+    cliques_vec.clear();
+    return ms;
+}
+
+double EBBkC_t::list_k_clique_mem_stream(const char* dir, int k, int l, const std::function<void(const std::vector<int>&)>& sink) {
+    // Configure globals for this run
+    K = k;
+    L = l;
+    N = 0ULL;
+    cliques_vec.clear();
+
+    EBBkC_Graph_t G, g;
+    double t0 = omp_get_wtime();
+    G.truss_decompose(dir);
+    G.build(false);
+    g.truss_num = G.truss_num;
+    g.build(true);
+    // Streaming mode: deliver each clique immediately via sink
+    g.clique_sink = sink;
+    for (int i = 0; i < G.e_size; i++) {
+        G.branch(i, &g);
+        g.EBBkC_plus_plus(K - 2, &N);
+    }
+    double ms = (double)(omp_get_wtime() - t0) * 1e3;
+
+    // No accumulation; ensure buffer is empty
+    cliques_vec.clear();
+    return ms;
+}
+
+double EBBkC_t::list_k_clique_mem_stream_from_csr(
+    uint32_t n, uint32_t m,
+    const uint32_t* node_off,
+    const int* edge_dst,
+    int k, int l,
+    const std::function<void(const std::vector<int>&)>& sink) {
+    K = k;
+    L = l;
+    N = 0ULL;
+    cliques_vec.clear();
+
+    // Build graph_t from borrowed CSR
+    graph_t gmain{};
+    gmain.n = n;
+    gmain.m = m;
+    gmain.adj = const_cast<int*>(edge_dst);
+    gmain.num_edges = const_cast<eid_t*>(reinterpret_cast<const eid_t*>(node_off));
+    gmain.borrowed = true;
+
+    // Construct wrapper Graph-like structure minimal for truss code
+    EBBkC_Graph_t G, g;
+    double t0 = omp_get_wtime();
+
+    // Reuse existing build path by simulating post-decompose state:
+    // We still need PKT_intersection; it expects a graph_t with fields set like in truss_decompose.
+    graph_t gg{};
+    gg.adj = gmain.adj;
+    gg.num_edges = gmain.num_edges;
+    gg.n = n;
+    gg.m = m;
+
+    Edge *edgeIdToEdge = (Edge *) malloc((gg.m / 2) * sizeof(Edge));
+    assert(edgeIdToEdge != nullptr);
+    getEidAndEdgeList(&gg, edgeIdToEdge);
+
+    int *EdgeSupport = (int *) malloc(gg.m / 2 * sizeof(int));
+    assert(EdgeSupport != nullptr);
+    int max_threads = omp_get_max_threads();
+#pragma omp parallel for
+    for (int i = 0; i < max_threads; i++) {
+        auto avg = gg.m / 2 / max_threads;
+        auto iter_beg = avg * i;
+        auto iter_end = (i == max_threads - 1) ? gg.m / 2 : avg * (i + 1);
+        memset(EdgeSupport + iter_beg, 0, (iter_end - iter_beg) * sizeof(int));
+    }
+
+    // Run decomposition
+    int truss_num = PKT_intersection(&gg, EdgeSupport, edgeIdToEdge);
+
+    // Populate EBBkC_Graph_t structures similarly to truss_decompose()
+    {
+        int u, v;
+        int *old2new = new int[n];
+        for (uint32_t i = 0; i < n; i++) old2new[i] = -1;
+        G.e_size = 0;
+        G.edges = new Edge_t[gg.m / 2];
+        G.T = new int *[gg.m / 2];
+        G.T_size = new int[gg.m / 2];
+        G.rank.clear();
+
+        for (uint32_t i = 0; i < gg.m / 2; i++) {
+            // Filter by K like in truss_decompose path
+            if (gg.edge_truss && gg.edge_truss[i] < K) continue;
+            Edge e = edgeIdToEdge[i];
+            u = e.u; v = e.v;
+            if (old2new[u] == -1) { old2new[u] = (int) G.new2old.size(); G.new2old.push_back(u); }
+            if (old2new[v] == -1) { old2new[v] = (int) G.new2old.size(); G.new2old.push_back(v); }
+            G.edges[G.e_size] = Edge_t(old2new[u], old2new[v], false);
+            G.edge2id.insert(G.edges[G.e_size], G.e_size);
+            G.rank.push_back(gg.edge_rank ? gg.edge_rank[i] : i);
+            int sz = gg.v_set[i].size();
+            G.T_size[G.e_size] = sz;
+            G.T[G.e_size] = new int[truss_num + 1];
+            for (int j = 0; j < sz; j++) {
+                int w = gg.v_set[i][j];
+                if (old2new[w] == -1) { old2new[w] = (int) G.new2old.size(); G.new2old.push_back(w); }
+                G.T[G.e_size][j] = old2new[w];
+            }
+            G.e_size++;
+        }
+
+        G.v_size = (int)G.new2old.size();
+        G.truss_num = truss_num;
+
+        // Build C and C_size like in truss_decompose()
+        G.C = new int *[G.e_size];
+        G.C_size = new int[G.e_size];
+        for (int i = 0; i < G.e_size; i++) {
+            G.C_size[i] = 0;
+            int sz = G.T_size[i];
+            G.C[i] = new int[sz * (sz - 1) / 2];
+            for (int j = 0; j < G.T_size[i]; j++) {
+                for (int k = j + 1; k < G.T_size[i]; k++) {
+                    Edge_t e = Edge_t(G.T[i][j], G.T[i][k], false);
+                    int idx = G.edge2id.exist(e);
+                    if (idx != -1 && G.rank[idx] > G.rank[i]) {
+                        G.C[i][G.C_size[i]++] = idx;
+                    }
+                }
+            }
+        }
+
+        // Build g (subproblem container)
+        g.truss_num = G.truss_num;
+        g.build(true);
+
+        // Stream results by setting sink on g
+        g.clique_sink = sink;
+        for (int i = 0; i < G.e_size; i++) {
+            G.branch(i, &g);
+            g.EBBkC_plus_plus(K - 2, &N);
+        }
+
+        delete [] old2new;
+    }
+
+    // Cleanup
+    free(edgeIdToEdge);
+    free(EdgeSupport);
+    if (gg.edge_truss) free(gg.edge_truss);
+    if (gg.edge_rank) free(gg.edge_rank);
+    double ms = (double)(omp_get_wtime() - t0) * 1e3;
     cliques_vec.clear();
     return ms;
 }
