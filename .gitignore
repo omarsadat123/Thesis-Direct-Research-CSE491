@@ -2,6 +2,7 @@
 testGraph/
 testGraphs.zip
 GraphDataset/
+synth-graphs-1000/
 
 # Log files
 *.log

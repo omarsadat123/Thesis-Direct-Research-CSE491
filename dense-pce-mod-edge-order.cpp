@@ -118,12 +118,12 @@ public:
         return std::binary_search(nbrs.begin(), nbrs.end(), v);
     }
 
-    bool read_graph_from_file(const std::string& filename) {
+    void read_graph_from_file(const std::string& filename) {
         graph_file_path = filename;   // <- add this line
         std::ifstream file(filename);
         if (!file.is_open()) {
             std::cerr << "Error: Could not open file " << filename << std::endl;
-            return false;
+            return;
         }
 
         int current_vertex = 0;
@@ -146,12 +146,11 @@ public:
             current_vertex++;
         }
         finalize_adjacency();
-        return true;
     }
 
     // Load graph from BBkC binaries produced by Cohesive_subgraph_book (b_degree.bin, b_adj.bin)
     // dir should be the directory containing the binaries; original_graph_path is kept for downstream path logic
-    bool read_graph_from_bbkcbinaries(const std::string& dir, const std::string& original_graph_path) {
+    void read_graph_from_bbkcbinaries(const std::string& dir, const std::string& original_graph_path) {
         graph_file_path = original_graph_path;
 
         std::filesystem::path deg_path = std::filesystem::path(dir) / "b_degree.bin";
@@ -161,7 +160,7 @@ public:
         std::ifstream adj_file(adj_path, std::ios::binary);
         if (!deg_file.is_open() || !adj_file.is_open()) {
             std::cerr << "Error: Could not open BBkC binaries in directory " << dir << std::endl;
-            return false;
+            return;
         }
 
         // b_degree.bin layout: [ui tt][ui n][ui m][ui degree[0..n-1]]
@@ -173,7 +172,7 @@ public:
         deg_file.read(reinterpret_cast<char*>(&m), sizeof(uint32_t));
         if (!deg_file.good()) {
             std::cerr << "Error: Failed reading degree header from " << deg_path.string() << std::endl;
-            return false;
+            return;
         }
         if (tt != sizeof(uint32_t)) {
             std::cerr << "Warning: Unexpected ui size header in b_degree.bin (" << tt << ")" << std::endl;
@@ -184,7 +183,7 @@ public:
             deg_file.read(reinterpret_cast<char*>(degrees.data()), static_cast<std::streamsize>(n * sizeof(uint32_t)));
             if (!deg_file.good()) {
                 std::cerr << "Error: Failed reading degree array from " << deg_path.string() << std::endl;
-                return false;
+                return;
             }
         }
 
@@ -213,7 +212,7 @@ public:
                 adj_file.read(reinterpret_cast<char*>(&v), sizeof(uint32_t));
                 if (!adj_file.good()) {
                     std::cerr << "Error: Unexpected EOF in b_adj.bin while reading neighbors (u=" << u << ")" << std::endl;
-                    return false;
+                    return;
                 }
                 // Add as undirected; b_adj already contains both directions, but map insert is idempotent
                 add_edge(static_cast<int>(u), static_cast<int>(v));
@@ -227,7 +226,6 @@ public:
             std::cerr << "Warning: Consumed neighbor count (" << consumed << ") != header m (" << m << ")" << std::endl;
         }
         finalize_adjacency();
-        return true;
     }
 
     std::vector<int> core_numbers;
@@ -1058,20 +1056,15 @@ int main(int argc, char* argv[]) {
     // 6. Read the graph and enumerate pseudo‑cliques.
     Graph graph;
     // Try to load BBkC binaries from the same directory as the provided .grh path
-    bool graph_loaded = false;
     {
         std::filesystem::path bdeg = std::filesystem::path(dir_path) / "b_degree.bin";
         std::filesystem::path badj = std::filesystem::path(dir_path) / "b_adj.bin";
         if (std::filesystem::exists(bdeg) && std::filesystem::exists(badj)) {
             std::cout << "Detected BBkC binaries in: " << dir_path << ", loading graph from binaries..." << std::endl;
-            graph_loaded = graph.read_graph_from_bbkcbinaries(dir_path, filename);
+            graph.read_graph_from_bbkcbinaries(dir_path, filename);
         } else {
-            graph_loaded = graph.read_graph_from_file(filename);
+            graph.read_graph_from_file(filename);
         }
-    }
-    if (!graph_loaded) {
-        std::cerr << "Aborting: graph could not be loaded." << std::endl;
-        return 1;
     }
     graph.compute_core_numbers();
 
@@ -1115,19 +1108,16 @@ int main(int argc, char* argv[]) {
     std::vector<int> pseudo_clique_counts = PC.get_pseudo_cliques_count();
     std::cout << "Maximal pseudo-clique counts:" << std::endl;
     bool found_any = false;
-    unsigned long long total_pseudo_cliques = 0ULL;
     for (size_t sz = 0; sz < pseudo_clique_counts.size(); ++sz) {
         if (pseudo_clique_counts[sz] > 0) {
             std::cout << "Size " << sz << ": " << pseudo_clique_counts[sz] << "\n";
             found_any = true;
         }
-        total_pseudo_cliques += static_cast<unsigned long long>(pseudo_clique_counts[sz]);
     }
      
     if (!found_any) {
         std::cout << "(No pseudo-cliques found meeting the criteria)" << std::endl;
     }
-    std::cout << "Total pseudo-cliques: " << total_pseudo_cliques << std::endl;
  
     std::cout << "\nTotal Iterations: " << PC.get_iter_count() << std::endl;
     std::cout << "#calls of saved by EDGE bound = "<< PC.get_edge_prunes() << "\n";
