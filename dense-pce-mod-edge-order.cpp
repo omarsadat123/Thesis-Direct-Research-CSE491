@@ -23,32 +23,7 @@ int K = 0;
 int L = 2;
 unsigned long long N = 0ULL;
 
-// Define PATH_MAX if not already defined
-// #ifndef PATH_MAX
-// #define PATH_MAX 4096
-// #endif
-
-std::vector<std::vector<int>> read_clique_file(const std::string& path) {
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        std::cerr << "Error opening clique file: " << path << std::endl;
-        return {};
-    }
-    std::cout << "Reading clique file: " << path << std::endl;
-    std::vector<std::vector<int>> cliques;
-    std::string line;
-    
-    while (std::getline(file, line)) {
-        std::stringstream ss(line);
-        std::vector<int> clique;
-        int node;
-        while (ss >> node) {
-            clique.push_back(node);
-        }
-        cliques.push_back(clique);
-    }
-    return cliques;
-}
+// (removed unused PATH_MAX and read_clique_file)
 
 // counting sort with tracklist
 class Graph {
@@ -73,20 +48,7 @@ public:
         adj_map[v].push_back(u);
     }
 
-    void add_empty_edge(int u) { //placeholder for empty edge
-        adj_map[u][-1] = false;        
-    }
-
-    void print_graph() const { //prints out each vertex and its list of neighbors
-        for (size_t i = 0; i < adj_map.size(); ++i) {
-            const auto& neighbors = adj_map[i];
-            std::cout << "Node " << i << " : ";
-            for (int neighbor : neighbors) {
-                std::cout << neighbor << " ";
-            }
-            std::cout << std::endl;
-        }
-    }
+    // (unused debug helpers removed)
 
     // void print_graph() const {
     //     for (const auto& node : adj_map) {
