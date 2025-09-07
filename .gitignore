@@ -2,6 +2,7 @@
 testGraph/
 testGraphs.zip
 GraphDataset/
+denseGraphs/
 
 # Log files
 *.log
