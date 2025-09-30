@@ -16,6 +16,8 @@ PARALLEL_JOBS=1
 # Algorithm parameters with defaults
 MIN_SIZE=10
 THETA=0.9
+# Ablation mode (1: none, 2: order-only, 3: order+edge, 4: full). Default 4
+MODE=4
 # Graph directory with default
 GRAPH_DIR="testGraphs"
 
@@ -30,12 +32,14 @@ show_usage() {
     echo "  -h        Show this help message"
 }
 
-while getopts "j:l:t:d:h" opt; do
+while getopts "j:l:t:d:m:x:h" opt; do
 	case $opt in
 		j) PARALLEL_JOBS="$OPTARG" ;;
 		l) MIN_SIZE="$OPTARG" ;;
 		t) THETA="$OPTARG" ;;
 		d) GRAPH_DIR="$OPTARG" ;;
+		m) MODE="$OPTARG" ;;
+		x) integrated_exec="$OPTARG" ;;
 		h) show_usage; exit 0 ;;
 		*) echo "Invalid option: -$OPTARG" >&2; show_usage; exit 1 ;;
 	esac
@@ -101,8 +105,14 @@ run_and_report() {
 # The base directory containing subfolders with .grh files
 graph_directory="$GRAPH_DIR"
 
-# Executable
-integrated_exec="./build_integrated/dense-pce-ab-integrated"
+# Executable (default to gated if available, else legacy)
+if [[ -z "$integrated_exec" ]]; then
+    if [[ -x "./build_integrated/dense-pce-ab-gated-integrated" ]]; then
+        integrated_exec="./build_integrated/dense-pce-ab-gated-integrated"
+    else
+        integrated_exec="./build_integrated/dense-pce-ab-integrated"
+    fi
+fi
 
 # Verify executable exists
 if [[ ! -x "$integrated_exec" ]]; then
@@ -124,10 +134,10 @@ handle_dir() {
 
 		echo "Processing directory: $dir" | tee -a "$log_file"
 		echo "Using graph: $found_grh" | tee -a "$log_file"
-		echo "Parameters: l=${MIN_SIZE}, theta=${THETA}" | tee -a "$log_file"
+        echo "Parameters: l=${MIN_SIZE}, theta=${THETA}, mode=${MODE}" | tee -a "$log_file"
 		echo "" | tee -a "$log_file"
 
-		run_and_report "dense-pce-integrated" "$log_file" "$integrated_exec" "$found_grh" --minimum "$MIN_SIZE" --theta "$THETA"
+        run_and_report "dense-pce-integrated" "$log_file" "$integrated_exec" "$found_grh" --minimum "$MIN_SIZE" --theta "$THETA" --mode "$MODE"
 
 		# The run for 'fpce' has been removed from this script.
 

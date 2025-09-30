@@ -20,6 +20,12 @@ int K = 0;
 int L = 2;
 unsigned long long N = 0ULL;
 
+// Ablation gating via command-line flags
+// Defaults: full FPCE path (order+edge+Turan)
+static bool g_enable_order_bound = true;
+static bool g_enable_edge_bound  = true;
+static bool g_enable_turan       = true;
+
 // counting sort with tracklist
 class Graph {
 public:
@@ -317,11 +323,16 @@ public:
             std::ceil(theta * (min_size * (min_size - 1) / 2.0))
         );
 
-        // Prepare core histogram from graph.core_numbers (already computed in main)
+        // Prepare core histogram only if edge-bound can use it
         max_core_seen = 0;
-        for (int c : graph.core_numbers) max_core_seen = std::max(max_core_seen, c);
-        core_hist.assign(max_core_seen + 1, 0);
-        cur_min_core = INT_MAX;
+        if (g_enable_edge_bound) {
+            for (int c : graph.core_numbers) max_core_seen = std::max(max_core_seen, c);
+            core_hist.assign(max_core_seen + 1, 0);
+            cur_min_core = INT_MAX;
+        } else {
+            core_hist.clear();
+            cur_min_core = INT_MAX;
+        }
         // Match mod-edge-order / fpce: gate EDGE bound with |P| >= R
         seed_R = static_cast<int>(
             std::ceil(1.0 / (1.0 - theta * (min_size - 1) / static_cast<double>(min_size)))
@@ -708,14 +719,14 @@ void PseudoCliqueEnumerator::iter(int v) {
     iter_count++;
 
     // EDGE bound: apply only when 1 ≤ |P| < ℓ (parity-correct ob-eb)
-    if (total_nodes_in_P >= 1 && total_nodes_in_P < min_size) {
+    if (g_enable_edge_bound && total_nodes_in_P >= 1 && total_nodes_in_P < min_size) {
         if (prune_by_edge_bound()) {
             numcalls_saved_by_edge_bound++;
             return;
         }
     }
 
-    // Use ceil(theta_P) everywhere (NOT raw theta_P)
+    // Integer add-degree threshold must be ceil(theta_P)
     const int min_add_deg = static_cast<int>(std::ceil(theta_P));
 
     // Always partition with respect to δ(P)
@@ -770,17 +781,15 @@ void PseudoCliqueEnumerator::iter(int v) {
         }
     }
 
-    // --- Maximal reporting with de-dup (matches mod-edge-order) ---
+    // --- report maximal (existing block retained) ---
     if (total_nodes_in_P >= min_size && is_current_maximal()) {
         auto cur = collect_current_pseudo_clique();
         std::sort(cur.begin(), cur.end());
         report_if_new(cur);
     }
 
-    // Local order-bound stop (fpce.c style): once |P| == μ, do not expand this node further.
-    if (order_ub > 0 && total_nodes_in_P == order_ub) {
-        return; // match PCE_iter's "if (t == ub) goto END;"
-    }
+    // Local order-bound stop at μ: do not expand past μ
+    if (g_enable_order_bound && order_ub > 0 && total_nodes_in_P == order_ub) return;
 
     // Deterministic expansion order
     std::sort(children_vec.begin(), children_vec.end());
@@ -828,6 +837,24 @@ int main(int argc, char* argv[]) {
             theta = std::stod(argv[++arg_idx]);
         } else if (arg == "--minimum" && arg_idx + 1 < argc) {
             minimum = std::stoi(argv[++arg_idx]);
+        } else if (arg == "--mode" && arg_idx + 1 < argc) {
+            int mode = std::stoi(argv[++arg_idx]);
+            if (mode == 1) { g_enable_order_bound = false; g_enable_edge_bound = false; g_enable_turan = false; }
+            else if (mode == 2) { g_enable_order_bound = true; g_enable_edge_bound = false; g_enable_turan = false; }
+            else if (mode == 3) { g_enable_order_bound = true; g_enable_edge_bound = true; g_enable_turan = false; }
+            else { g_enable_order_bound = true; g_enable_edge_bound = true; g_enable_turan = true; }
+        } else if (arg == "--no-order") {
+            g_enable_order_bound = false;
+        } else if (arg == "--no-edge") {
+            g_enable_edge_bound = false;
+        } else if (arg == "--no-turan") {
+            g_enable_turan = false;
+        } else if (arg == "--order") {
+            g_enable_order_bound = true;
+        } else if (arg == "--edge") {
+            g_enable_edge_bound = true;
+        } else if (arg == "--turan") {
+            g_enable_turan = true;
         } else {
             std::cerr << "Unknown option: " << arg << std::endl;
             return 1;
@@ -844,6 +871,9 @@ int main(int argc, char* argv[]) {
 
     int R = std::ceil(1.0 / (1.0 - theta * (minimum - 1) / static_cast<double>(minimum)));
     std::cout << "Computed R: " << R << std::endl;
+    std::cout << "Gates => order:" << (g_enable_order_bound?"on":"off")
+              << " edge:" << (g_enable_edge_bound?"on":"off")
+              << " turan:" << (g_enable_turan?"on":"off") << std::endl;
 
     // 4. Derive directory path in a cross‑platform way.
     std::filesystem::path p(filename);
@@ -862,6 +892,11 @@ int main(int argc, char* argv[]) {
             graph.read_graph_from_file(filename);
         }
     }
+    // If Turán is disabled, free EBBkC-only CSR immediately (we won't use it)
+    if (!g_enable_turan) {
+        graph.csr_node_off.clear(); graph.csr_node_off.shrink_to_fit();
+        graph.csr_edge_dst.clear(); graph.csr_edge_dst.shrink_to_fit();
+    }
     
     // If maximum is not specified, use total vertices (existing code below also does this)
     if (maximum == std::numeric_limits<int>::max()) {
@@ -869,24 +904,33 @@ int main(int argc, char* argv[]) {
     }
 
     // 1) Compute ξ_G from CSR, then μ(θ, ξ_G)
-    graph.compute_core_numbers_from_csr();
-    int mu = graph.compute_order_bound(theta, graph.degeneracy);
-    std::cout << "Order bound μ = " << mu << " (degeneracy ξ_G = " << graph.degeneracy << ")\n";
-
-    // 2) Global pre-prune by μ (same spirit as fpce.c’s early exit)
-    if (minimum > mu) {
-        std::cout << "Pruning by Order Bound: no (ℓ,θ)-pseudo-clique can exist since ℓ (" 
-                << minimum << ") > μ (" << mu << ")\n";
-        return 0;
+    if (g_enable_order_bound || g_enable_edge_bound) {
+        graph.compute_core_numbers_from_csr();
+    }
+    int mu = 0;
+    if (g_enable_order_bound) {
+        mu = graph.compute_order_bound(theta, graph.degeneracy);
+        std::cout << "Order bound μ = " << mu << " (degeneracy ξ_G = " << graph.degeneracy << ")\n";
+        if (minimum > mu) {
+            std::cout << "Pruning by Order Bound: no (ℓ,θ)-pseudo-clique can exist since ℓ (" 
+                    << minimum << ") > μ (" << mu << ")\n";
+            return 0;
+        }
+        if (maximum > mu) maximum = mu;
+    } else {
+        std::cout << "Order bound disabled" << std::endl;
     }
 
-    // 3) Clamp maximum to μ to avoid useless allocations/work
-    if (maximum > mu) maximum = mu;
+    PseudoCliqueEnumerator PC(graph, theta, minimum, maximum,
+#if ENABLE_ORDER_BOUND
+        mu
+#else
+        -1
+#endif
+    );
 
-    PseudoCliqueEnumerator PC(graph, theta, minimum, maximum, mu);
-
-    // Stream R-cliques from the PKT/BSR CSR (identical to mod-edge-order)
-    {
+    // Seeding strategy: Turán via EBBkC when enabled; otherwise node-by-node
+    if (g_enable_turan) {
         const int n = static_cast<int>(graph.csr_n);
         const int m = static_cast<int>(graph.csr_m);
         EBBkC_t::list_k_clique_mem_stream_from_csr(
@@ -899,12 +943,14 @@ int main(int argc, char* argv[]) {
                 PC.enumerate_with_turan(r_clique);
             }
         );
+        graph.csr_node_off.clear(); graph.csr_node_off.shrink_to_fit();
+        graph.csr_edge_dst.clear(); graph.csr_edge_dst.shrink_to_fit();
+    } else {
+        for (int node = 0; node < graph.total_nodes; ++node) {
+            PC.add_to_inside_P(node);
+            PC.remove_from_inside_P(node);
+        }
     }
-    // Free EBBkC-only CSR to reduce tail memory usage
-    graph.csr_node_off.clear();
-    graph.csr_node_off.shrink_to_fit();
-    graph.csr_edge_dst.clear();
-    graph.csr_edge_dst.shrink_to_fit();
 
     std::vector<int> pseudo_clique_counts = PC.get_pseudo_cliques_count();
 

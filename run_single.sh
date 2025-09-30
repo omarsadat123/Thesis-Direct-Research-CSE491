@@ -141,7 +141,7 @@ run_and_report() {
 graph_directory="$GRAPH_DIR"
 
 # Executable
-dense_pce_exec="./dense-pce-time"
+dense_pce_exec="./build_integrated/dense-pce-ab-integrated"
 
 # Verify executable exists
 if [[ ! -x "$dense_pce_exec" ]]; then
