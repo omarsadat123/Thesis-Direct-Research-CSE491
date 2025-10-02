@@ -7,9 +7,9 @@ This note explains how to build and run the ablation‑friendly binary (`dense-p
 Use the project build script (links EBBkC automatically):
 
 ```bash
-bash build.sh dense-pce-ab-gated.cpp
-bash build.sh dense-pce-ab.cpp
-bash build.sh dense-pce-mod-edge-order.cpp
+wsl bash build.sh dense-pce-ab-gated.cpp
+wsl bash build.sh dense-pce-ab.cpp
+wsl bash build.sh dense-pce-mod-edge-order.cpp
 ```
 
 Outputs appear under `build_integrated/`:
@@ -47,10 +47,10 @@ Examples:
 ./build_integrated/dense-pce-ab-gated-integrated testGraph/fpce_graph/fpce_graph.grh --minimum 3 --theta 0.6
 
 # Explicit modes
-./build_integrated/dense-pce-ab-gated-integrated ... --minimum 3 --theta 0.6 --mode 1   # PCE-like (no pruning)
-./build_integrated/dense-pce-ab-gated-integrated ... --minimum 3 --theta 0.6 --mode 2   # order only
-./build_integrated/dense-pce-ab-gated-integrated ... --minimum 3 --theta 0.6 --mode 3   # order+edge
-./build_integrated/dense-pce-ab-gated-integrated ... --minimum 3 --theta 0.6 --mode 4   # order+edge+Turán
+wsl ./build_integrated/dense-pce-ab-gated-integrated ... --minimum 3 --theta 0.6 --mode 1   # PCE-like (no pruning)
+wsl ./build_integrated/dense-pce-ab-gated-integrated ... --minimum 3 --theta 0.6 --mode 2   # order only
+wsl ./build_integrated/dense-pce-ab-gated-integrated ... --minimum 3 --theta 0.6 --mode 3   # order+edge
+wsl ./build_integrated/dense-pce-ab-gated-integrated ... --minimum 3 --theta 0.6 --mode 4   # order+edge+Turán
 
 # Overrides (examples)
 ./build_integrated/dense-pce-ab-gated-integrated ... --mode 1 --order        # enable only order-bound
