@@ -1082,9 +1082,7 @@ double EBBkC_t::list_k_clique_mem_stream_from_csr(
     const int* edge_dst,
     int k, int l,
     const std::function<void(const std::vector<int>&)>& sink) {
-    K = k;
-    L = l;
-    N = 0ULL;
+    K = k; L = l; N = 0ULL;
     cliques_vec.clear();
 
     // Build graph_t from borrowed CSR

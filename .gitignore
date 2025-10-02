@@ -2,6 +2,7 @@
 testGraph/
 testGraphs.zip
 GraphDataset/
+denseGraphs/
 synth-graphs-1000/
 
 # Log files
@@ -27,6 +28,12 @@ dense-pce-mod
 dense-pce-mod-edge
 dense-pce-mod-edge-order
 dense-pce-edge
+dense-pce-memo
+dense-pce-time
+dense-pce-ob
+dense-pce-ob-eb
+dense-pce-ab
+pce
 BBkC
 edgelist2binary
 
@@ -77,3 +84,4 @@ venv.bak/
 # Output directories
 test_output_*/
 output_*/
+logs/

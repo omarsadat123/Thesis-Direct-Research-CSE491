@@ -12,14 +12,18 @@
 #include <set>
 #include <filesystem>
 #include <cstring>
+#include <cstdint>
 
 
 // counting sort with tracklist
 class Graph {
 public:
     Graph() = default;
-    // Compact adjacency: sorted vector per vertex
+    // Temporary adjacency for building; cleared after CSR finalize
     std::vector<std::vector<int>> adj_map;
+    // CSR storage
+    std::vector<uint32_t> csr_offsets;   // size n+1
+    std::vector<uint32_t> csr_neighbors; // size m
 
     int total_nodes = 0 ;
 
@@ -32,11 +36,13 @@ public:
     }
 
     void print_graph() const { //prints out each vertex and its list of neighbors
-        for (size_t i = 0; i < adj_map.size(); ++i) {
-            const auto& neighbors = adj_map[i];
+        int n = total_nodes;
+        for (int i = 0; i < n; ++i) {
             std::cout << "Node " << i << " : ";
-            for (int neighbor : neighbors) {
-                std::cout << neighbor << " ";
+            uint32_t begin = (i < (int)csr_offsets.size()) ? csr_offsets[i] : 0u;
+            uint32_t end = (i + 1 < (int)csr_offsets.size()) ? csr_offsets[i + 1] : begin;
+            for (uint32_t e = begin; e < end; ++e) {
+                std::cout << static_cast<int>(csr_neighbors[e]) << " ";
             }
             std::cout << std::endl;
         }
@@ -44,16 +50,41 @@ public:
 
     std::string graph_file_path;
     void finalize_adjacency() {
+        // Sort and unique temporary adjacency, then build CSR and free adj_map
         for (auto& nbrs : adj_map) {
             std::sort(nbrs.begin(), nbrs.end());
             nbrs.erase(std::unique(nbrs.begin(), nbrs.end()), nbrs.end());
         }
+        int n = static_cast<int>(adj_map.size());
+        total_nodes = std::max(total_nodes, n);
+        csr_offsets.assign(static_cast<size_t>(total_nodes + 1), 0u);
+        for (int u = 0; u < total_nodes; ++u) {
+            csr_offsets[u + 1] = csr_offsets[u] + static_cast<uint32_t>(u < n ? adj_map[u].size() : 0u);
+        }
+        uint32_t m = csr_offsets[total_nodes];
+        csr_neighbors.clear();
+        csr_neighbors.reserve(m);
+        csr_neighbors.assign(m, 0u);
+        for (int u = 0; u < total_nodes; ++u) {
+            uint32_t off = csr_offsets[u];
+            if (u < n) {
+                const auto& nbrs = adj_map[u];
+                for (size_t k = 0; k < nbrs.size(); ++k) csr_neighbors[off + static_cast<uint32_t>(k)] = static_cast<uint32_t>(nbrs[k]);
+            }
+        }
+        // ensure slices sorted (already sorted by adj_map pass)
+        // Free temporary adjacency to save memory
+        adj_map.clear();
+        adj_map.shrink_to_fit();
     }
 
     bool has_edge(int u, int v) const {
-        if (u < 0 || v < 0 || u >= (int)adj_map.size()) return false;
-        const auto& nbrs = adj_map[u];
-        return std::binary_search(nbrs.begin(), nbrs.end(), v);
+        if (u < 0 || v < 0 || u >= total_nodes) return false;
+        if (csr_offsets.empty()) return false;
+        uint32_t begin = csr_offsets[static_cast<size_t>(u)];
+        uint32_t end = csr_offsets[static_cast<size_t>(u + 1)];
+        uint32_t vv = static_cast<uint32_t>(v);
+        return std::binary_search(csr_neighbors.begin() + begin, csr_neighbors.begin() + end, vv);
     }
 
     void read_graph_from_file(const std::string& filename) {
@@ -131,6 +162,10 @@ public:
         // Prepare adjacency container
         adj_map.clear();
         adj_map.resize(n);
+        // Reserve per-vertex based on degrees to minimize realloc
+        for (uint32_t u = 0; u < n; ++u) {
+            adj_map[u].reserve(degrees[u]);
+        }
         total_nodes = static_cast<int>(n);
 
         // Read neighbors sequentially from b_adj.bin; length should be m entries
@@ -144,8 +179,9 @@ public:
                     std::cerr << "Error: Unexpected EOF in b_adj.bin while reading neighbors (u=" << u << ")" << std::endl;
                     return;
                 }
-                // Add as undirected; b_adj already contains both directions, but map insert is idempotent
-                add_edge(static_cast<int>(u), static_cast<int>(v));
+                // b_adj contains both directions; push only the (u->v) entry as provided
+                if (u >= adj_map.size()) adj_map.resize(u + 1);
+                adj_map[u].push_back(static_cast<int>(v));
                 consumed++;
             }
         }
@@ -163,33 +199,35 @@ public:
     PseudoCliqueEnumerator(Graph& graph, float theta = 1.0, int min_size = 1, int max_size = -1)
         : graph(graph), theta(theta), min_size(min_size) {
         
-        total_nodes = graph.adj_map.size(); 
+        total_nodes = graph.total_nodes; 
 
         std::cout << "total nodes: " << total_nodes << " "   << "\n";
 
         this->max_size = max_size != -1 ? max_size : total_nodes;
 
-        pseudo_cliques.resize(max_size + 1);
+        //pseudo_cliques.resize(max_size + 1);
         pseudo_cliques_count.resize(max_size + 1, 0);
 
-        inside_P.resize(max_size + 1);
-        neighbors_and_P.resize(max_size + 1);
+        // Initialize intrusive buckets
+        headP.assign(max_size + 1, -1);
+        headNP.assign(max_size + 2, -1); // +1 for targetDeg access
+        countP.assign(max_size + 1, 0);
+        countNP.assign(max_size + 2, 0);
+        prevP.assign(graph.total_nodes, -1);
+        nextP.assign(graph.total_nodes, -1);
+        prevNP.assign(graph.total_nodes, -1);
+        nextNP.assign(graph.total_nodes, -1);
         
-        std::vector<int> keys(graph.total_nodes);
-        std::iota(keys.begin(), keys.end(), 0);
-
-
-        neighbors_and_P[0] = keys;
-
-        // neighbors_and_P[0] = get_keys(graph.adj_map);
-        
-        
-        
-
-        int idx = 0;
-        for (const auto& v : neighbors_and_P[0]) {
-            tracks.push_back({0, -1, 0, -1, idx});
-            ++idx;
+        tracks.clear();
+        tracks.reserve(graph.total_nodes);
+        tracks.resize(graph.total_nodes);
+        for (int i = 0; i < graph.total_nodes; ++i) {
+            tracks[i].inP = 0;
+            tracks[i].degP = -1;
+            tracks[i].degNP = 0;
+            tracks[i].posP = -1;
+            tracks[i].posNP = -1;
+            insertNP_front(i, 0);
         }
 
         theta_P = 0;
@@ -201,15 +239,47 @@ public:
         theta_P = (theta * total_nodes_in_P * (total_nodes_in_P + 1) / 2.0) - total_edges_in_P;
     }
 
+    // --- Intrusive list helpers ---
+    inline void unlinkP(int v, int deg) {
+        int pv = prevP[v];
+        int nv = nextP[v];
+        if (pv != -1) nextP[pv] = nv; else headP[deg] = nv;
+        if (nv != -1) prevP[nv] = pv;
+        prevP[v] = nextP[v] = -1;
+        if (deg >= 0 && deg < (int)countP.size()) countP[deg]--;
+    }
+    inline void insertP_front(int v, int deg) {
+        prevP[v] = -1;
+        nextP[v] = headP[deg];
+        if (headP[deg] != -1) prevP[headP[deg]] = v;
+        headP[deg] = v;
+        if (deg >= 0 && deg < (int)countP.size()) countP[deg]++;
+    }
+    inline void unlinkNP(int v, int deg) {
+        int pv = prevNP[v];
+        int nv = nextNP[v];
+        if (pv != -1) nextNP[pv] = nv; else headNP[deg] = nv;
+        if (nv != -1) prevNP[nv] = pv;
+        prevNP[v] = nextNP[v] = -1;
+        if (deg >= 0 && deg < (int)countNP.size()) countNP[deg]--;
+    }
+    inline void insertNP_front(int v, int deg) {
+        prevNP[v] = -1;
+        nextNP[v] = headNP[deg];
+        if (headNP[deg] != -1) prevNP[headNP[deg]] = v;
+        headNP[deg] = v;
+        if (deg >= 0 && deg < (int)countNP.size()) countNP[deg]++;
+    }
+
     void print_all() const {
         std::cout << "P: ";
-        for (const auto& p : inside_P) {
-            for (int v : p) std::cout << v << " ";
+        for (int d = 0; d <= total_nodes_in_P; ++d) {
+            for (int v = headP[d]; v != -1; v = nextP[v]) std::cout << v << " ";
             std::cout << "| ";
         }
         std::cout << "\nNP: ";
-        for (const auto& np : neighbors_and_P) {
-            for (int v : np) std::cout << v << " ";
+        for (int d = 0; d <= total_nodes_in_P + 1 && d < (int)headNP.size(); ++d) {
+            for (int v = headNP[d]; v != -1; v = nextNP[v]) std::cout << v << " ";
             std::cout << "| ";
         }
         // std::cout << "\ntracks: ";
@@ -240,13 +310,22 @@ public:
     };
 
 private:
-    // Collect current pseudo-clique P as a sorted vector
+    struct Track {
+        uint8_t inP;      // 0/1 flag
+        int32_t degP;     // degree in P
+        int32_t degNP;    // degree wrt P
+        int32_t posP;     // index in inside_P[degP]
+        int32_t posNP;    // index in neighbors_and_P[degNP]
+    };
+    // Collect current pseudo-clique P as a sorted vector (via intrusive lists)
     std::vector<int> collect_current_pseudo_clique() const {
         std::vector<int> current_p;
         current_p.reserve(total_nodes_in_P);
-        for (const auto& bucket : inside_P) {
-            if (!bucket.empty()) {
-                current_p.insert(current_p.end(), bucket.begin(), bucket.end());
+        int maxDeg = static_cast<int>(headP.size()) - 1;
+        if (maxDeg < 0) maxDeg = 0;
+        for (int d = 0; d <= maxDeg; ++d) {
+            for (int v = headP[d]; v != -1; v = nextP[v]) {
+                current_p.push_back(v);
             }
         }
         std::sort(current_p.begin(), current_p.end());
@@ -258,11 +337,12 @@ private:
     bool is_current_maximal() const {
         int min_add_deg = static_cast<int>(std::ceil(theta_P));
         if (min_add_deg < 0) min_add_deg = 0;
-        // Compare histogram counts: all vertices vs vertices in P
-        for (int d = min_add_deg; d <= total_nodes_in_P; ++d) {
-            size_t occ_num = (d >= 0 && d < static_cast<int>(neighbors_and_P.size())) ? neighbors_and_P[d].size() : 0;
-            size_t in_p_num = (d >= 0 && d < static_cast<int>(inside_P.size())) ? inside_P[d].size() : 0;
-            if (occ_num > in_p_num) return false; // there exists an outside vertex extendable
+        // Compare histogram counts: all vertices vs vertices in P (using counts)
+        int maxD = std::min(static_cast<int>(countNP.size()) - 1, total_nodes_in_P);
+        for (int d = min_add_deg; d <= maxD; ++d) {
+            size_t occ_num = (d >= 0 && d < static_cast<int>(countNP.size())) ? static_cast<size_t>(countNP[d]) : 0;
+            size_t in_p_num = (d >= 0 && d < static_cast<int>(countP.size())) ? static_cast<size_t>(countP[d]) : 0;
+            if (occ_num > in_p_num) return false; // some outside vertex can extend P
         }
         return true;
     }
@@ -281,16 +361,18 @@ private:
 
     std::stack<int> children;
 
-    std::vector<std::vector<int> > inside_P;
-    std::vector<std::vector<int> > neighbors_and_P;
+    // Intrusive bucketed lists for degrees 0..max_size
+    std::vector<int32_t> headP, headNP;   // heads per degree (-1 if empty)
+    std::vector<int32_t> prevP, nextP;    // per-vertex links in P buckets
+    std::vector<int32_t> prevNP, nextNP;  // per-vertex links in NP buckets
+    std::vector<int32_t> countP, countNP; // counts per degree
     std::vector<std::vector<int> > pseudo_cliques;
     std::vector<int> pseudo_cliques_count;
 
     // std::unordered_map<int, TrackInfo> tracks;
-    std::vector<std::vector<int> > tracks;
+    std::vector<Track> tracks;
 
-    // To avoid duplicate reporting of maximal pseudo-cliques
-    std::set<std::vector<int>> reported_maximal_pseudo_cliques;
+    
 
     
 
@@ -312,53 +394,34 @@ void PseudoCliqueEnumerator::add_to_inside_P(int v) {
         return;
     }
     
-    tracks[v][0] = true;
-    tracks[v][1] = tracks[v][2];
-    inside_P[tracks[v][1]].push_back(v);
-    tracks[v][3] = inside_P[tracks[v][1]].size() - 1;
+    tracks[v].inP = 1;
+    tracks[v].degP = tracks[v].degNP;
+    insertP_front(v, tracks[v].degP);
+    tracks[v].posP = -1; // not used with intrusive lists
     
 
-    for (int adj_v : graph.adj_map[v]) {
+    {
+        uint32_t begin = (v >= 0 && v + 1 < (int)graph.csr_offsets.size()) ? graph.csr_offsets[static_cast<size_t>(v)] : 0u;
+        uint32_t end = (v >= 0 && v + 1 < (int)graph.csr_offsets.size()) ? graph.csr_offsets[static_cast<size_t>(v + 1)] : begin;
+        for (uint32_t ei = begin; ei < end; ++ei) {
+            int adj_v = static_cast<int>(graph.csr_neighbors[ei]);
         // std::cout << "    ite: " << adj_v  << "\n";
 
 
-        if (tracks[adj_v][0]) {
+        if (tracks[adj_v].inP) {
             total_edges_in_P += 1;
-            int degree = tracks[adj_v][1];
-            tracks[inside_P[degree].back()][3] = tracks[adj_v][3];
-
-            // Swap and pop
-            std::swap(inside_P[degree][tracks[adj_v][3]], inside_P[degree].back());
-            inside_P[degree].pop_back();
-
-            inside_P[degree + 1].push_back(adj_v);
-            tracks[adj_v][3] = inside_P[degree + 1].size() - 1;
-            tracks[adj_v][1] = degree + 1;
+            int degree = tracks[adj_v].degP;
+            unlinkP(adj_v, degree);
+            insertP_front(adj_v, degree + 1);
+            tracks[adj_v].degP = degree + 1;
         }
 
         // Update degree_in_NP
-        int degree = tracks[adj_v][2];
-        int pos = tracks[adj_v][4];
-        int last_node = neighbors_and_P[degree].back();
-
-
-        
-        // Swap and pop
-        std::swap(neighbors_and_P[degree][pos], neighbors_and_P[degree].back());
-
-        // std::cout << "       " << last_node << "\n";
-        
-
-        tracks[last_node][4] = pos;
-        // std::cout << "-----" << "\n";
-
-        neighbors_and_P[degree].pop_back();
-
-
-
-        neighbors_and_P[degree + 1].push_back(adj_v);
-        tracks[adj_v][4] = neighbors_and_P[degree + 1].size() - 1;
-        tracks[adj_v][2] = degree + 1;
+        int degree = tracks[adj_v].degNP;
+        unlinkNP(adj_v, degree);
+        insertNP_front(adj_v, degree + 1);
+        tracks[adj_v].degNP = degree + 1;
+        }
     }
 
     total_nodes_in_P += 1;
@@ -371,59 +434,45 @@ void PseudoCliqueEnumerator::add_to_inside_P(int v) {
 
 
 void PseudoCliqueEnumerator::remove_from_inside_P(int v) {
-        tracks[v][0] = false;
-        int degree = tracks[v][1];
-        int pos = tracks[v][3];
+        tracks[v].inP = 0;
+        int degree = tracks[v].degP;
+        int pos = tracks[v].posP;
 
-        if (!inside_P[degree].empty()) {
-            int last_node = inside_P[degree].back();
-            std::swap(inside_P[degree][pos], inside_P[degree].back());
-            inside_P[degree].pop_back();
-            tracks[last_node][3] = pos;
-        }
+        if (degree >= 0) unlinkP(v, degree);
 
-        for (int adj_u : graph.adj_map[v]) {
-        if (tracks[adj_u][0]) {
+        {
+            uint32_t begin = (v >= 0 && v + 1 < (int)graph.csr_offsets.size()) ? graph.csr_offsets[static_cast<size_t>(v)] : 0u;
+            uint32_t end = (v >= 0 && v + 1 < (int)graph.csr_offsets.size()) ? graph.csr_offsets[static_cast<size_t>(v + 1)] : begin;
+            for (uint32_t ei = begin; ei < end; ++ei) {
+                int adj_u = static_cast<int>(graph.csr_neighbors[ei]);
+        if (tracks[adj_u].inP) {
                 total_edges_in_P--;
-            int degree = tracks[adj_u][1];
-            int pos = tracks[adj_u][3];
-
-                if (!inside_P[degree].empty()) {
-                    int last_node = inside_P[degree].back();
-                    std::swap(inside_P[degree][pos], inside_P[degree].back());
-                    inside_P[degree].pop_back();
-                    tracks[last_node][3] = pos;
-                }
+            int degree = tracks[adj_u].degP;
+            unlinkP(adj_u, degree);
 
                 if (degree > 0) {
-                    inside_P[degree - 1].push_back(adj_u);
-                    tracks[adj_u][3] = inside_P[degree - 1].size() - 1;
-                    tracks[adj_u][1]--;
+                    insertP_front(adj_u, degree - 1);
+                    tracks[adj_u].degP--;
                 } else {
                     // Sanity: degree should not be negative; clamp to 0
-                    tracks[adj_u][1] = 0;
-                    tracks[adj_u][3] = -1;
+                    tracks[adj_u].degP = 0;
+                    tracks[adj_u].posP = -1;
                 }
             }
 
-            int degree_np = tracks[adj_u][2];
-            int pos_np = tracks[adj_u][4];
+            int degree_np = tracks[adj_u].degNP;
+            int pos_np = tracks[adj_u].posNP;
 
-            if (!neighbors_and_P[degree_np].empty()) {
-                int last_node = neighbors_and_P[degree_np].back();
-                std::swap(neighbors_and_P[degree_np][pos_np], neighbors_and_P[degree_np].back());
-                neighbors_and_P[degree_np].pop_back();
-                tracks[last_node][4] = pos_np;
-            }
+            unlinkNP(adj_u, degree_np);
 
             if (degree_np > 0) {
-                neighbors_and_P[degree_np - 1].push_back(adj_u);
-                tracks[adj_u][4] = neighbors_and_P[degree_np - 1].size() - 1;
-                tracks[adj_u][2]--;
+                insertNP_front(adj_u, degree_np - 1);
+                tracks[adj_u].degNP--;
             } else {
                 // Sanity: clamp at 0
-                tracks[adj_u][2] = 0;
-                tracks[adj_u][4] = -1;
+                tracks[adj_u].degNP = 0;
+                tracks[adj_u].posNP = -1;
+            }
             }
         }
 
@@ -435,14 +484,26 @@ void PseudoCliqueEnumerator::iter(int v) {
     // std::cout << "iter: " << v << "\n";
     iter_count++;
     int c = 0;
-    int v_star_degree = tracks[v][2];
+    int v_star_degree = tracks[v].degNP;
     std::vector<int> children_vec;
-    children_vec.reserve(256);
+    // Heuristic reservation based on size of degree bucket around v*
+    {
+        int hint = 0;
+        if (v_star_degree >= 0 && v_star_degree < (int)headNP.size()) {
+            // approximate bucket size from countNP
+            hint = (v_star_degree < (int)countNP.size()) ? countNP[v_star_degree] : 0;
+            // add neighbors from lower degree bucket window
+            if (v_star_degree - 1 >= 0 && v_star_degree - 1 < (int)countNP.size()) hint += countNP[v_star_degree - 1];
+            if (v_star_degree + 1 < (int)countNP.size()) hint += countNP[v_star_degree + 1];
+        }
+        if (hint < 256) hint = 256;
+        children_vec.reserve(hint);
+    }
     
     // Child type 1
     for (int deg = std::max(0, static_cast<int>(theta_P)); deg < v_star_degree; ++deg) {
-        for (int u : neighbors_and_P[deg]) {
-            if (tracks[u][0] || tracks[u][2] < theta_P) {
+        for (int u = headNP[deg]; u != -1; u = nextNP[u]) {
+            if (tracks[u].inP || tracks[u].degNP < theta_P) {
                 continue;
             }
             c++;
@@ -450,8 +511,8 @@ void PseudoCliqueEnumerator::iter(int v) {
         }
     }
 
-    for (int u : neighbors_and_P[v_star_degree]) {
-        if (tracks[u][0] || tracks[u][2] < theta_P) {
+    for (int u = headNP[v_star_degree]; u != -1; u = nextNP[u]) {
+        if (tracks[u].inP || tracks[u].degNP < theta_P) {
             continue;
         }
         if (u < v) {
@@ -461,7 +522,7 @@ void PseudoCliqueEnumerator::iter(int v) {
         } 
         else if (graph.has_edge(v, u)) {
             bool valid = true;
-            for (int x : inside_P[v_star_degree]) {
+            for (int x = headP[v_star_degree]; x != -1; x = nextP[x]) {
                 if (!graph.has_edge(u, x) && x < u) {
                     valid = false;
                     break;
@@ -477,15 +538,15 @@ void PseudoCliqueEnumerator::iter(int v) {
 
 
     // Type-3: Always consider degree == min_deg + 1 candidates with tuple/tie and prefix adjacency checks
-    for (int u : neighbors_and_P[v_star_degree + 1]) {
-        if (tracks[u][0] || tracks[u][2] < theta_P) {
+    for (int u = headNP[v_star_degree + 1]; u != -1; u = nextNP[u]) {
+        if (tracks[u].inP || tracks[u].degNP < theta_P) {
             continue;
         }
         // tuple/tie: since deg_K(u)=min_deg+1, enforce u < v  (equivalently v > u)
         if (graph.has_edge(v, u) && v > u) {
             bool valid = true;
             // adjacency to the whole inside_P[min_deg]
-            for (int x : inside_P[v_star_degree]) {
+            for (int x = headP[v_star_degree]; x != -1; x = nextP[x]) {
                 if (!graph.has_edge(u, x)) {
                     valid = false;
                     break;
@@ -493,7 +554,7 @@ void PseudoCliqueEnumerator::iter(int v) {
             }
             // adjacency to prefix of inside_P[min_deg+1]: only x < u
             if (valid) {
-                for (int x : inside_P[v_star_degree + 1]) {
+                for (int x = headP[v_star_degree + 1]; x != -1; x = nextP[x]) {
                     if (x < u && !graph.has_edge(u, x)) {
                         valid = false;
                         break;
@@ -509,13 +570,8 @@ void PseudoCliqueEnumerator::iter(int v) {
 
     // Maximality check following pce.c: report current P if maximal (always-on)
     if (total_nodes_in_P >= min_size && is_current_maximal()) {
-        std::vector<int> current_p = collect_current_pseudo_clique();
-        if (!current_p.empty()) {
-            if (reported_maximal_pseudo_cliques.insert(current_p).second) {
-                if (static_cast<size_t>(total_nodes_in_P) < pseudo_cliques_count.size()) {
-                    pseudo_cliques_count[total_nodes_in_P] += 1;
-                }
-            }
+        if (static_cast<size_t>(total_nodes_in_P) < pseudo_cliques_count.size()) {
+            pseudo_cliques_count[total_nodes_in_P] += 1;
         }
     }
 
@@ -598,14 +654,14 @@ int main(int argc, char* argv[]) {
         }
     }
     
-    // If maximum is not specified, use the total number of vertices
+        // If maximum is not specified, use the total number of vertices
     if (maximum == std::numeric_limits<int>::max()) {
-        maximum = graph.adj_map.size();
+        maximum = graph.total_nodes;
     }
 
     PseudoCliqueEnumerator PC(graph, theta, minimum, maximum);
 
-    for (size_t node = 0; node < graph.adj_map.size(); ++node) {
+    for (int node = 0; node < graph.total_nodes; ++node) {
         // std::cout << "Starting node: " << node << std::endl;
         PC.add_to_inside_P(node);
         // std::cout << "removing node: " << node << std::endl;

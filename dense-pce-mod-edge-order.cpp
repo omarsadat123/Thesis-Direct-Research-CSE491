@@ -88,22 +88,6 @@ public:
         }
     }
 
-    // void print_graph() const {
-    //     for (const auto& node : adj_map) {
-    //         std::vector<int> neighbors;
-    //         for (const auto& neighbor : node.second) {
-    //             neighbors.push_back(neighbor.first);
-    //         }
-    //         std::sort(neighbors.begin(), neighbors.end());
-
-    //         std::cout << "Node " << node.first << " : ";
-    //         for (int neighbor : neighbors) {
-    //             std::cout << neighbor << " ";
-    //         }
-    //         std::cout << std::endl;
-    //     }
-    // }
-
     std::string graph_file_path;
     void finalize_adjacency() {
         for (auto& nbrs : adj_map) {
@@ -195,7 +179,7 @@ public:
         csr_n = n;
         csr_m = m;
         csr_node_off.assign(n + 1, 0);
-        for (uint32_t i = 0; i < n; ++i) csr_node_off[i + 1] = csr_node_off[i] + degrees[i];
+        for (uint32_t i = 0; i < n; ++i) csr_node_off[i + 1] = csr_node_off[i] + degrees[i]; //counting total numbe of edges present
         if (csr_node_off[n] != m) {
             std::cerr << "Warning: degree prefix sum != m (" << csr_node_off[n] << " vs " << m << ")" << std::endl;
             csr_m = csr_node_off[n];
@@ -203,11 +187,11 @@ public:
         csr_edge_dst.resize(csr_m);
 
         // Read neighbors sequentially from b_adj.bin; length should be m entries
-        uint64_t consumed = 0;
-        uint64_t fill_idx = 0;
-        for (uint32_t u = 0; u < n; ++u) {
+        uint64_t consumed = 0; // consumed: how many neighbor IDs have been read
+        uint64_t fill_idx = 0; // fill_idx: next position to fill in csr_edge_dst
+        for (uint32_t u = 0; u < n; ++u) { //Outer loop over nodes
             uint32_t du = degrees[u];
-            for (uint32_t k = 0; k < du; ++k) {
+            for (uint32_t k = 0; k < du; ++k) { //Inner loop over neighbors of node u
                 uint32_t v;
                 adj_file.read(reinterpret_cast<char*>(&v), sizeof(uint32_t));
                 if (!adj_file.good()) {
@@ -592,15 +576,6 @@ public:
     };
 
     unsigned long long get_edge_prunes() const { return numcalls_saved_by_edge_bound; }
-
-    // std::vector<int> get_keys(const std::vector<int, std::unordered_map<int, bool> >& map) {
-    //     std::vector<int> keys;
-    //     for (const auto& pair : map) {
-    //         keys.push_back(pair.first);
-    //     }
-    //     std::sort(keys.begin(), keys.end());
-    //     return keys;
-    // }
 
 
     void enumerate_with_turan(const std::vector<int>& turan_seed);  // Enumerate pseudo-cliques using Turan's theorem
@@ -1043,7 +1018,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // 3. Compute R and show diagnostics.
     int R = std::ceil(1.0 / (1.0 - theta * (minimum - 1) / static_cast<double>(minimum)));
     std::cout << "Computed R: " << R << std::endl;
 
@@ -1052,8 +1026,6 @@ int main(int argc, char* argv[]) {
     std::string dir_path = p.parent_path().empty() ? "." : p.parent_path().string();
     std::cout << "Directory path: " << dir_path << std::endl;
 
-
-    // 6. Read the graph and enumerate pseudo‑cliques.
     Graph graph;
     // Try to load BBkC binaries from the same directory as the provided .grh path
     {
