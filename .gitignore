@@ -4,6 +4,13 @@ testGraphs.zip
 GraphDataset/
 denseGraphs/
 synth-graphs-1000/
+ablationGraph/
+
+#batch-run script
+run_both.sh
+run_params.sh
+run_single_param.sh
+run_single.sh
 
 # Log files
 *.log
