@@ -17,7 +17,9 @@ run_single.sh
 *.txt
 
 # Documents
+*.tex
 *.pdf
+fpce.md
 
 # Object files and build artifacts
 *.o

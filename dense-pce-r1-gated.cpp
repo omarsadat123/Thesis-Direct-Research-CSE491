@@ -16,9 +16,9 @@
 #include "EBBkC/src/edge_oriented.h"
 
 // Globals required by EBBkC in library mode
-int K = 0;
-int L = 1;   // For r-clique seeding we want the strictest setting
-unsigned long long N = 0ULL;
+int K = 0; // target clique size
+int L = 1;   // early-termination t-plex parameter (strictest setting)
+unsigned long long N = 0ULL; // number of vertices in the graph
 
 // Ablation gating via command-line flags
 // Defaults: full FPCE path (order+edge+Turan)
@@ -33,8 +33,8 @@ public:
     // Temporary adjacency for building; cleared after CSR finalize
     std::vector<std::vector<int>> adj_map;
     // CSR storage
-    std::vector<uint32_t> csr_offsets;   // size n+1
-    std::vector<uint32_t> csr_neighbors; // size m
+    std::vector<uint32_t> csr_offsets;   // size n+1 (total nodes + 1)
+    std::vector<uint32_t> csr_neighbors; // size m (total edges)
 
     // CSR view for EBBkC zero-copy entry (from PKT/BSR binaries)
     std::vector<uint32_t> csr_node_off;  // size n+1
@@ -71,18 +71,20 @@ public:
     }
 
     std::string graph_file_path;
-    void finalize_adjacency() {
-        // Sort and unique temporary adjacency, then build CSR and free adj_map
+    void finalize_adjacency() { // converts adj_map into CSR format
+        // Sort and unique temporary adjacency
         for (auto& nbrs : adj_map) {
-            std::sort(nbrs.begin(), nbrs.end());
-            nbrs.erase(std::unique(nbrs.begin(), nbrs.end()), nbrs.end());
+            std::sort(nbrs.begin(), nbrs.end()); // sort each vertex's neighbor list
+            nbrs.erase(std::unique(nbrs.begin(), nbrs.end()), nbrs.end()); // remove duplicate edges
         }
+        // Build CSR offset array
         int n = static_cast<int>(adj_map.size());
         total_nodes = std::max(total_nodes, n);
         csr_offsets.assign(static_cast<size_t>(total_nodes + 1), 0u);
         for (int u = 0; u < total_nodes; ++u) {
-            csr_offsets[u + 1] = csr_offsets[u] + static_cast<uint32_t>(u < n ? adj_map[u].size() : 0u);
+            csr_offsets[u + 1] = csr_offsets[u] + static_cast<uint32_t>(u < n ? adj_map[u].size() : 0u); // cumulative vertex count
         }
+        // Populate CSR neighbor array
         uint32_t m = csr_offsets[total_nodes];
         csr_neighbors.clear();
         csr_neighbors.resize(m);
@@ -93,7 +95,6 @@ public:
                 for (size_t k = 0; k < nbrs.size(); ++k) csr_neighbors[off + static_cast<uint32_t>(k)] = static_cast<uint32_t>(nbrs[k]);
             }
         }
-        // ensure slices sorted (already sorted by adj_map pass)
         // Free temporary adjacency to save memory
         adj_map.clear();
         adj_map.shrink_to_fit();
@@ -183,8 +184,8 @@ public:
         if (csr_offsets.empty()) return false;
         uint32_t begin = csr_offsets[static_cast<size_t>(u)];
         uint32_t end = csr_offsets[static_cast<size_t>(u + 1)];
-        uint32_t vv = static_cast<uint32_t>(v);
-        return std::binary_search(csr_neighbors.begin() + begin, csr_neighbors.begin() + end, vv);
+        uint32_t vv = static_cast<uint32_t>(v); // type-casting
+        return std::binary_search(csr_neighbors.begin() + begin, csr_neighbors.begin() + end, vv); // binary search is O(log degree) instead of O(degree).
     }
 
     void read_graph_from_file(const std::string& filename) {
@@ -224,6 +225,7 @@ public:
     //  (a) EBBkC CSR (csr_node_off/csr_edge_dst) preserving on-disk order
     //  (b) Our own sorted CSR (csr_offsets/csr_neighbors) directly, without adj_map
     void read_graph_from_bbkcbinaries(const std::string& dir, const std::string& original_graph_path) {
+        // file setup
         graph_file_path = original_graph_path;
         std::filesystem::path deg_path = std::filesystem::path(dir) / "b_degree.bin";
         std::filesystem::path adj_path = std::filesystem::path(dir) / "b_adj.bin";
@@ -234,14 +236,16 @@ public:
             return;
         }
 
+        // Read degress file header
         // b_degree.bin: [ui tt][ui n][ui m][ui degree[0..n-1]]
-        uint32_t tt=0, n=0, m=0;
+        uint32_t tt=0, n=0, m=0; // tt (type size), n (vertices), m (edges)
         deg_file.read(reinterpret_cast<char*>(&tt), sizeof(uint32_t));
         deg_file.read(reinterpret_cast<char*>(&n), sizeof(uint32_t));
         deg_file.read(reinterpret_cast<char*>(&m), sizeof(uint32_t));
         if (!deg_file.good()) { std::cerr << "Error: Failed reading degree header\n"; return; }
         if (tt != sizeof(uint32_t)) std::cerr << "Warning: ui size header " << tt << "\n";
 
+        // Read degree array
         std::vector<uint32_t> degrees(n);
         if (n>0) {
             deg_file.read(reinterpret_cast<char*>(degrees.data()), static_cast<std::streamsize>(n*sizeof(uint32_t)));
@@ -258,7 +262,7 @@ public:
         }
         csr_edge_dst.resize(csr_m);
 
-        // (B) Our enumerator CSR: same shape, but rows sorted for binary_search in has_edge()
+        // (B) enumerator CSR: same shape, but rows sorted for binary_search in has_edge()
         total_nodes = static_cast<int>(n);
         csr_offsets = csr_node_off;               // size n+1
         csr_neighbors.resize(csr_offsets[n]);     // total length
@@ -921,7 +925,7 @@ int main(int argc, char* argv[]) {
         rev.assign(kept, -1);
         for (int u = 0; u < n; ++u) {
             if (!keep[u]) continue;
-            rev[newid[u]] = u;
+            rev[newid[u]] = u; // original vertex u gets newid[u] as its new index
             uint32_t begin = graph.csr_offsets[(size_t)u];
             uint32_t end   = graph.csr_offsets[(size_t)u + 1];
             for (uint32_t e = begin; e < end; ++e) {
