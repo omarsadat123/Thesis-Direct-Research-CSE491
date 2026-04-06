@@ -22,6 +22,7 @@ unsigned long long N = 0ULL; // number of vertices in the graph
 static bool g_enable_order_bound = true;
 static bool g_enable_edge_bound  = true;
 static bool g_enable_turan       = true;
+static bool g_enable_uncle_pruning = true; // Conditional Uncle Pruning (parent-feasible pool)
 
 // counting sort with tracklist
 class Graph {
@@ -281,25 +282,66 @@ private:
     std::vector<int32_t> prevP, nextP;    // per-vertex links in P buckets
     std::vector<int32_t> prevNP, nextNP;  // per-vertex links in NP buckets
     std::vector<int32_t> countP, countNP; // counts per degree
+
+    int maxNPdeg = 0; // maximum non-empty degree bucket in NP (outside-P only)
     std::vector<int> pseudo_cliques_count;
     std::vector<Track> tracks; //
     int order_ub = -1;   // μ (order bound); -1 means "disabled"
 
-    bool is_current_maximal() const {
-        int min_add_deg = static_cast<int>(std::ceil(theta_P)); // minimum degree of a vertex that can be added to the current pseudo-clique P
-        if (min_add_deg < 0) min_add_deg = 0; // if the minimum degree is less than 0, set it to 0
-        // Compare histogram counts: all vertices vs vertices in P (using counts)
-        int maxD = std::min(static_cast<int>(countNP.size()) - 1, total_nodes_in_P); // sets uppr limit for the loop
-        for (int d = min_add_deg; d <= maxD; ++d) { // iterate through the degrees
-            size_t occ_num = (d >= 0 && d < static_cast<int>(countNP.size())) ? static_cast<size_t>(countNP[d]) : 0; // countNP[d]: total # of vertices in ENTIRE GRAPH that connect to d vertices inside P
-            size_t in_p_num = (d >= 0 && d < static_cast<int>(countP.size())) ? static_cast<size_t>(countP[d]) : 0; // countP[d]: total # of vertices in P that connect to d vertices inside P
-            if (occ_num > in_p_num) return false; // if the number of vertices in the entire graph that connect to d vertices inside P is greater than the number of vertices in P connecting to d vertices inside P, return false
+    // ---- Conditional Uncle Pruning (CUP) support ----
+    // We pass a pointer to the PARENT's feasible-extension pool down the recursion
+    // stack. A child can then generate its candidates from this pool under the
+    // CUP condition, instead of scanning NP buckets again.
+    std::vector<const std::vector<int>*> parent_pool_stack;
+
+    // O(1) neighbor test for the current v* (built only when CUP is active).
+    std::vector<uint32_t> nbr_mark;
+    uint32_t nbr_token = 1;
+
+    // O(1) membership test for "u is already in parent pool" to shrink the
+    // neighbor-supplement scan and avoid duplicates.
+    std::vector<uint32_t> pool_mark;
+    uint32_t pool_token = 1;
+
+    inline const std::vector<int>* parent_feasible_pool() const {
+        return parent_pool_stack.empty() ? nullptr : parent_pool_stack.back();
+    }
+
+    inline void bump_token(std::vector<uint32_t>& mark, uint32_t& token) {
+        // extremely rare wrap; reset safely
+        if (++token == 0) {
+            std::fill(mark.begin(), mark.end(), 0);
+            token = 1;
         }
-        return true; // if no outside vertex can extend P, return true
+    }
+
+    inline void mark_neighbors_of(int x) {
+        bump_token(nbr_mark, nbr_token);
+        const uint32_t b = graph.csr_offsets[static_cast<size_t>(x)];
+        const uint32_t e = graph.csr_offsets[static_cast<size_t>(x) + 1];
+        for (uint32_t i = b; i < e; ++i) {
+            const uint32_t w = graph.csr_neighbors[i];
+            if (w < nbr_mark.size()) nbr_mark[w] = nbr_token;
+        }
+    }
+
+    inline bool is_neighbor_of_vstar(int u) const {
+        return (u >= 0 && static_cast<size_t>(u) < nbr_mark.size() && nbr_mark[static_cast<size_t>(u)] == nbr_token);
+    }
+
+    bool is_current_maximal() const {
+        // NP stores OUTSIDE-P vertices only.
+        // Current P is maximal iff no outside vertex has degNP >= ceil(theta_P).
+        int min_add_deg = static_cast<int>(std::ceil(theta_P)); // minimum degree of a vertex that can be  added to the current pseudo-clique P
+        if (min_add_deg < 0) min_add_deg = 0; // if the minimum degree is less than 0, set it to 0
+        // If min_add_deg==0, any outside vertex can extend; maximal only when P covers all vertices.
+        if (min_add_deg == 0) return (total_nodes_in_P == graph.total_nodes);
+        return maxNPdeg < min_add_deg;
     }
 
     // Optional accounting (like fpce.c/mod-edge-order)
     unsigned long long numcalls_saved_by_edge_bound = 0ULL;
+    unsigned long long numcalls_saved_by_uncle_pruning = 0ULL;
 
     // Update report_if_new to take size directly
     inline void report_if_new(int size) {
@@ -409,6 +451,13 @@ public:
             core_hist.clear();
             cur_min_core = INT_MAX;
         }
+
+        // CUP: marker arrays for O(1) neighbor + pool membership checks (reused via token)
+        nbr_mark.assign(static_cast<size_t>(graph.total_nodes), 0);
+        pool_mark.assign(static_cast<size_t>(graph.total_nodes), 0);
+        nbr_token = 1;
+        pool_token = 1;
+        parent_pool_stack.clear();
     }
 
     // calculates the minimum connection required for any new node to join the current P
@@ -440,17 +489,47 @@ public:
         if (pv != -1) nextNP[pv] = nv; else headNP[deg] = nv; // if the previous vertex is not -1, set the next vertex of the previous vertex to the next vertex
         if (nv != -1) prevNP[nv] = pv; // if the next vertex is not -1, set the previous vertex of the next vertex to the previous vertex
         prevNP[v] = nextNP[v] = -1; // set the previous and next vertex of vertex v to -1
-        if (deg >= 0 && deg < (int)countNP.size()) countNP[deg]--; // decrement the count of vertices in the NP bucket for degree deg
+        if (deg >= 0 && deg < (int)countNP.size()) {
+            countNP[deg]--; // decrement the count of vertices in the NP bucket for degree deg
+            // Maintain O(1) maximality via maxNPdeg
+            if (deg == maxNPdeg && countNP[deg] == 0) {
+                while (maxNPdeg > 0 && countNP[maxNPdeg] == 0) --maxNPdeg;
+            }
+        }
     }
     inline void insertNP_front(int v, int deg) {
         prevNP[v] = -1; // set the previous vertex of vertex v to -1
         nextNP[v] = headNP[deg]; // set the next vertex of vertex v to the head of the NP bucket for degree deg
         if (headNP[deg] != -1) prevNP[headNP[deg]] = v; // if the head of the NP bucket for degree deg is not -1, set the previous vertex of the head of the NP bucket for degree deg to vertex v
         headNP[deg] = v; // set the head of the NP bucket for degree deg to vertex v
-        if (deg >= 0 && deg < (int)countNP.size()) countNP[deg]++; // increment the count of vertices in the NP bucket for degree deg
+        if (deg >= 0 && deg < (int)countNP.size()) {
+            countNP[deg]++; // increment the count of vertices in the NP bucket for degree deg
+            // Maintain O(1) maximality via maxNPdeg
+            if (deg > maxNPdeg) maxNPdeg = deg;
+        }
     }
 
-    void add_to_inside_P(int v);
+    inline void build_parent_feasible_pool(std::vector<int>& out, int min_add_deg) const {
+        out.clear();
+        if (min_add_deg < 0) min_add_deg = 0;
+        if (maxNPdeg < min_add_deg) return;
+
+        // Micro-opt #1: reserve size using countNP histogram.
+        int reserve_n = 0;
+        for (int d = min_add_deg; d <= maxNPdeg && d < (int)countNP.size(); ++d) {
+            reserve_n += countNP[d];
+        }
+        if (reserve_n > 0) out.reserve(static_cast<size_t>(reserve_n));
+
+        for (int d = min_add_deg; d <= maxNPdeg && d < (int)headNP.size(); ++d) {
+            for (int u = headNP[d]; u != -1; u = nextNP[u]) {
+                out.push_back(u);
+            }
+        }
+    }
+
+
+    void add_to_inside_P(int v, const std::vector<int>* parent_pool = nullptr);
     void remove_from_inside_P(int v);
     void iter(int v);
     // Internal: insert v into P WITHOUT recursing (used by Turán seed build)
@@ -466,6 +545,9 @@ public:
 
     unsigned long long get_numcalls_saved_by_edge_bound() const {
         return numcalls_saved_by_edge_bound;
+    }
+    unsigned long long get_numcalls_saved_by_uncle_pruning() const {
+        return numcalls_saved_by_uncle_pruning;
     }
 
     // Enumerate starting from a Turán seed (R-clique) provided by EBBkC, takes a "seed" clique (found by the external library) and "teleports" the algorithm to that state, effectively skipping the early levels of the recursion tree to prune the search space.
@@ -515,11 +597,19 @@ public:
 }; 
 
 // add a vertex to the P bucket without recursing, used by Turán seed build
+// add a vertex to the P bucket without recursing, used by Turán seed build
 void PseudoCliqueEnumerator::add_vertex_internal(int v) {
     if (total_nodes_in_P > max_size) return;
+
+    // NP stores OUTSIDE-P vertices only: remove v from NP before moving it into P
+    {
+        const int dnp_v = static_cast<int>(tracks[v].degNP);
+        unlinkNP(v, dnp_v);
+    }
+
     // move v into P
     tracks[v].inP  = 1; // set vertex v to be in P
-    tracks[v].degP = static_cast<uint16_t>(tracks[v].degNP); // set the degree of vertex v in P to be the degree of vertex v in NP
+    tracks[v].degP = static_cast<uint16_t>(tracks[v].degNP); // deg into current P
     insertP_front(v, tracks[v].degP); // insert vertex v into P with degree tracks[v].degP
 
     // core histogram (for edge-bound)
@@ -528,7 +618,7 @@ void PseudoCliqueEnumerator::add_vertex_internal(int v) {
     core_hist[cv] += 1; // increments the count of vertices in P that have core cv
     if (cv < cur_min_core) cur_min_core = cv; // update the minimum core number in P
 
-    // update neighbors’ P/NP degrees and |E[P]|
+    // update neighbors' P/NP degrees and |E[P]|
     uint32_t begin = (v >= 0 && v + 1 < (int)graph.csr_offsets.size())
                      ? graph.csr_offsets[(size_t)v] : 0u; // neighbor list for vertex v starts
     uint32_t end   = (v >= 0 && v + 1 < (int)graph.csr_offsets.size())
@@ -542,27 +632,36 @@ void PseudoCliqueEnumerator::add_vertex_internal(int v) {
             unlinkP(u, d); // remove the neighbor from P
             insertP_front(u, d + 1); // insert the neighbor into P with degree d + 1
             tracks[u].degP = static_cast<uint16_t>(d + 1); // update the degree of the neighbor in P
+        } else {
+            // Update neighbors outside P (NP)
+            int dnp = static_cast<int>(tracks[u].degNP); // get the degree of the neighbor in NP
+            unlinkNP(u, dnp); // remove the neighbor from NP
+            insertNP_front(u, dnp + 1); // insert the neighbor into NP with degree dnp + 1
+            tracks[u].degNP = static_cast<uint16_t>(dnp + 1); // update the degree of the neighbor in NP
         }
-        // Update neighbors outside P
-        int dnp = static_cast<int>(tracks[u].degNP); // get the degree of the neighbor in NP
-        unlinkNP(u, dnp); // remove the neighbor from NP
-        insertNP_front(u, dnp + 1); // insert the neighbor into NP with degree dnp + 1
-        tracks[u].degNP = static_cast<uint16_t>(dnp + 1); // update the degree of the neighbor in NP
     }
 
     total_nodes_in_P += 1; // increment the number of nodes in P
     set_theta_P(); // update the theta_P
 }
 
-void PseudoCliqueEnumerator::add_to_inside_P(int v) {
+void PseudoCliqueEnumerator::add_to_inside_P(int v, const std::vector<int>* parent_pool) {
+    parent_pool_stack.push_back(parent_pool);
     add_vertex_internal(v);   // state updates only
-    iter(v);                  // now recurse once (normal growth path)
+    iter(v);
+    parent_pool_stack.pop_back();
 }
 
 void PseudoCliqueEnumerator::remove_from_inside_P(int v) {
+    const int v_deg_in_P = static_cast<int>(tracks[v].degP); // deg(v, P\{v}) after removal
+
     tracks[v].inP = 0; // set vertex v to be not in P
-    int degree = tracks[v].degP;
+    int degree = static_cast<int>(tracks[v].degP);
     if (degree >= 0) unlinkP(v, degree); // remove vertex v from P
+
+    // v becomes outside: re-insert into NP with its degree into the new P
+    tracks[v].degNP = static_cast<uint16_t>(v_deg_in_P);
+    insertNP_front(v, v_deg_in_P);
 
     // Iterate Neighbors of v
     {
@@ -571,26 +670,27 @@ void PseudoCliqueEnumerator::remove_from_inside_P(int v) {
         for (uint32_t ei = begin; ei < end; ++ei) {
             int adj_u = static_cast<int>(graph.csr_neighbors[ei]); // neighbor of v
             if (tracks[adj_u].inP) {
+                // Downgrade neighbors inside P
                 total_edges_in_P--; // update |E[P]|
-                int degree = static_cast<int>(tracks[adj_u].degP); // degree of neighbor
-                unlinkP(adj_u, degree); // remove neighbor from P
-                if (degree > 0) {
-                    insertP_front(adj_u, degree - 1); // insert the neighbor into P with degree (degree - 1)
-                    tracks[adj_u].degP = static_cast<uint16_t>(degree - 1); // update the degree of the neighbor in P
+                int d = static_cast<int>(tracks[adj_u].degP); // degree of neighbor
+                unlinkP(adj_u, d); // remove neighbor from P
+                if (d > 0) {
+                    insertP_front(adj_u, d - 1); // insert the neighbor into P with degree (degree - 1)
+                    tracks[adj_u].degP = static_cast<uint16_t>(d - 1); // update the degree of the neighbor in P
                 } else {
                     // Sanity: degree should not be negative; clamp to 0
                     tracks[adj_u].degP = 0; // set the degree of the neighbor in P to 0
                 }
-            }
-            // Downgrade Neighbors Outside P
-            int degree_np = static_cast<int>(tracks[adj_u].degNP);
-            unlinkNP(adj_u, degree_np); // remove neighbor from NP
-            if (degree_np > 0) {
-                insertNP_front(adj_u, degree_np - 1); // insert the neighbor into NP with degree (degree_np - 1)
-                tracks[adj_u].degNP = static_cast<uint16_t>(degree_np - 1); // update the degree of the neighbor in NP
             } else {
-                // Sanity: clamp at 0
-                tracks[adj_u].degNP = 0; // set the degree of the neighbor in NP to 0
+                // Downgrade neighbors outside P (NP)
+                int degree_np = static_cast<int>(tracks[adj_u].degNP);
+                unlinkNP(adj_u, degree_np); // remove neighbor from NP
+                if (degree_np > 0) {
+                    insertNP_front(adj_u, degree_np - 1); // insert the neighbor into NP with degree (degree_np - 1)
+                    tracks[adj_u].degNP = static_cast<uint16_t>(degree_np - 1); // update the degree of the neighbor in NP
+                } else {
+                    tracks[adj_u].degNP = 0; // set the degree of the neighbor in NP to 0
+                }
             }
         }
     }
@@ -628,68 +728,177 @@ void PseudoCliqueEnumerator::iter(int v) {
     // Always partition with respect to δ(P)
     const int deltaP = min_degree_in_P_fast(); // min-deg currently inside P
 
+    // --- maximality before child enumeration ---
+    if (is_current_maximal()) {
+        if (total_nodes_in_P >= min_size) report_if_new(total_nodes_in_P);
+        return;
+    }
+
+    // CUP: build the parent-feasible pool for THIS node (passed to its children).
+    // Pool(P) := { u ∉ P : deg_P(u) ≥ ceil(theta_P) }, i.e. all vertices that are pseudo-clique feasible w.r.t. P.
+    // This pool is computed once per node and is re-used by all children for conditional pruning.
+    std::vector<int> feasible_pool;
+    if (g_enable_uncle_pruning) {
+        build_parent_feasible_pool(feasible_pool, min_add_deg);
+    }
+
     std::vector<int> children_vec;
+    children_vec.reserve(64);
 
-    // ---- Type 1: deg == [0..δ(P)-1] ----
-    for (int deg = std::max(0, min_add_deg); deg < deltaP; ++deg) { // iterate through the neighbors of vertex v with degree less than deltaP
-        for (int u = headNP[deg]; u != -1; u = nextNP[u]) { // iterate through the neighbors of vertex v with degree deg
-            if (tracks[u].inP || tracks[u].degNP < min_add_deg) continue; // if the neighbor is in P or has degree less than min_add_deg, skip
-            children_vec.push_back(u); // add the neighbor to the children vector
+    auto try_add_child = [&](int u, bool u_adj_v) {
+        if (tracks[u].inP) return;
+        int deg = static_cast<int>(tracks[u].degNP);
+        if (deg < min_add_deg) return;
+
+        // Type 1: deg < δ(P)
+        if (deg < deltaP) {
+            children_vec.push_back(u);
+            return;
         }
-    }
 
-    // ---- Type 2: deg == δ(P) ----
-    for (int u = headNP[deltaP]; u != -1; u = nextNP[u]) {
-        if (tracks[u].inP || tracks[u].degNP < min_add_deg) continue; // if the neighbor is in P or has degree less than min_add_deg, skip
-        if (u < v) {
-            children_vec.push_back(u); // add the neighbor to the children vector
-        } else if (graph.has_edge(v, u)) { // u must be connected to v AND to every other node x in the minimum-degree bucket that is smaller than u
-            bool valid = true;
-            // must be adjacent to all x in P[δ(P)] with x < u
-            for (int x = headP[deltaP]; x != -1; x = nextP[x]) {
-                if (x < u && !graph.has_edge(u, x)) { valid = false; break; } // if the neighbor is not connected to any other node x in the minimum-degree bucket that is smaller than u, skip
+        // Type 2: deg = δ(P)
+        if (deg == deltaP) {
+            if (u < v) {
+                children_vec.push_back(u);
+                return;
             }
-            if (valid) children_vec.push_back(u); // add the neighbor to the children vector
+            if (!u_adj_v) return;
+            for (int x = headP[deltaP]; x != -1; x = nextP[x]) {
+                if (x < u && !graph.has_edge(u, x)) return;
+            }
+            children_vec.push_back(u);
+            return;
+        }
+
+        // Type 3: deg = δ(P)+1
+        if (deg == deltaP + 1) {
+            if (!(u < v)) return;
+            if (!u_adj_v) return;
+
+            // Must connect to all vertices in P[δ(P)]
+            for (int x = headP[deltaP]; x != -1; x = nextP[x]) {
+                if (!graph.has_edge(u, x)) return;
+            }
+
+            // Must connect to all vertices in P[δ(P)+1] with id < u
+            if (deltaP + 1 < (int)headP.size()) {
+                for (int x = headP[deltaP + 1]; x != -1; x = nextP[x]) {
+                    if (x < u && !graph.has_edge(u, x)) return;
+                }
+            }
+            children_vec.push_back(u);
+            return;
+        }
+    };
+
+    bool used_cup = false;
+    const std::vector<int>* parent_pool = (g_enable_uncle_pruning ? parent_feasible_pool() : nullptr);
+
+    if (g_enable_uncle_pruning && parent_pool != nullptr) {
+        // Conditional implication used for pruning:
+        // If θ|K| ≥ deg_{parent(K)}(s) + I(u,s), then
+        //   K ∪ {u} pseudo-clique ⇒ parent(K) ∪ {u} pseudo-clique.
+        // We use this to avoid scanning all NP buckets at K.
+        const long double theta_k = (long double)theta * (long double)total_nodes_in_P;
+        const int deg_parent_s = static_cast<int>(tracks[v].degP);  // deg_{K\{v}}(v)
+        const bool cond0 = (theta_k + 1e-12L >= (long double)deg_parent_s);
+        const bool cond1 = (theta_k + 1e-12L >= (long double)(deg_parent_s + 1));
+
+        if (cond0 || cond1) {
+            used_cup = true;
+            numcalls_saved_by_uncle_pruning++;
+
+            // Mark N(v) once for O(1) adjacency checks to v.
+            mark_neighbors_of(v);
+            bump_token(pool_mark, pool_token);
+
+            // 1) Scan parent-feasible pool.
+            //    - cond1: pool covers ALL candidates.
+            //    - only cond0: pool covers all I=0 candidates; I=1 gap handled below.
+            for (int u : *parent_pool) {
+                if (u < 0 || u >= graph.total_nodes) continue;
+                pool_mark[static_cast<size_t>(u)] = pool_token; // Micro-opt #2: membership for duplicate-skipping
+                if (tracks[u].inP) continue;
+                const bool u_adj_v = is_neighbor_of_vstar(u);
+                try_add_child(u, u_adj_v);
+            }
+
+            // 2) If cond1 is false, add the I=1 gap by scanning neighbors of v.
+            if (!cond1) {
+                const uint32_t beg = graph.csr_offsets[static_cast<size_t>(v)];
+                const uint32_t endN = graph.csr_offsets[static_cast<size_t>(v) + 1];
+                for (uint32_t idx = beg; idx < endN; ++idx) {
+                    const int u = static_cast<int>(graph.csr_neighbors[idx]);
+                    if (u < 0 || u >= graph.total_nodes) continue;
+                    if (pool_mark[static_cast<size_t>(u)] == pool_token) continue; // already scanned via parent pool
+                    if (tracks[u].inP) continue;
+                    try_add_child(u, true);
+                }
+            }
         }
     }
 
-    // ---- Type 3: deg == δ(P)+1 ----
-    {
-        const int targetDeg = deltaP + 1;
-        if (targetDeg < static_cast<int>(headNP.size())) {
-            for (int u = headNP[targetDeg]; u != -1; u = nextNP[u]) {
-                if (tracks[u].inP || tracks[u].degNP < min_add_deg) continue;
-                if (!graph.has_edge(v, u) || !(v > u)) continue; // allow this child u if its ID is smaller than the current node v
+    if (!used_cup) {
+        // Original bucket-based child generation (baseline).
 
-                bool valid = true;
-                // (1) u must be adjacent to all x in P[δ(P)]
-                for (int x = headP[deltaP]; x != -1; x = nextP[x]) { // iterate through the neighbors of vertex v with degree deltaP
-                    if (!graph.has_edge(u, x)) { valid = false; break; } // if the neighbor is not connected to any other node x in the minimum-degree bucket that is smaller than u, skip
-                }
-                // (2) u must also connect to all existing nodes in the delta_P + 1 bucket that have a smaller ID than itself
-                if (valid && targetDeg < static_cast<int>(headP.size())) {
-                    for (int x = headP[targetDeg]; x != -1; x = nextP[x]) { // iterate through the neighbors of vertex v with degree targetDeg
-                        if (x < u && !graph.has_edge(u, x)) { valid = false; break; } // if the neighbor is not connected to any other node x in the (deltaP + 1) bucket that is smaller than u, skip
+        // Type 1: deg in [min_add_deg, δ(P)-1]
+        for (int deg = std::max(0, min_add_deg); deg <= deltaP - 1; ++deg) {
+            if (deg < 0 || deg >= (int)headNP.size()) continue;
+            for (int u = headNP[deg]; u != -1; u = nextNP[u]) {
+                children_vec.push_back(u);
+            }
+        }
+
+        // Type 2: deg = δ(P)
+        if (deltaP >= 0 && deltaP < (int)headNP.size()) {
+            for (int u = headNP[deltaP]; u != -1; u = nextNP[u]) {
+                if (tracks[u].degNP < min_add_deg) continue;
+                if (u < v) {
+                    children_vec.push_back(u);
+                } else {
+                    if (graph.has_edge(v, u)) {
+                        bool ok = true;
+                        for (int x = headP[deltaP]; x != -1; x = nextP[x]) {
+                            if (x < u && !graph.has_edge(u, x)) { ok = false; break; }
+                        }
+                        if (ok) children_vec.push_back(u);
                     }
                 }
-                if (valid) children_vec.push_back(u);
+            }
+        }
+
+        // Type 3: deg = δ(P)+1
+        if (deltaP + 1 >= 0 && deltaP + 1 < (int)headNP.size()) {
+            for (int u = headNP[deltaP + 1]; u != -1; u = nextNP[u]) {
+                if (tracks[u].degNP < min_add_deg) continue;
+                if (graph.has_edge(v, u) && v > u) {
+                    bool ok = true;
+                    for (int x = headP[deltaP]; x != -1; x = nextP[x]) {
+                        if (!graph.has_edge(u, x)) { ok = false; break; }
+                    }
+                    if (ok) {
+                        for (int x = headP[deltaP + 1]; x != -1; x = nextP[x]) {
+                            if (x < u && !graph.has_edge(u, x)) { ok = false; break; }
+                        }
+                    }
+                    if (ok) children_vec.push_back(u);
+                }
             }
         }
     }
 
-    // --- report maximal (existing block retained) ---
-    if (total_nodes_in_P >= min_size && is_current_maximal()) {
-        // No need to collect and sort vector just to check size
-        report_if_new(total_nodes_in_P);
+    // CUP may introduce duplicates; always normalize expansion list deterministically.
+    if (children_vec.size() > 1) {
+        std::sort(children_vec.begin(), children_vec.end());
+        children_vec.erase(std::unique(children_vec.begin(), children_vec.end()), children_vec.end());
     }
 
     // Local order-bound stop at μ: do not expand past μ
     if (g_enable_order_bound && order_ub > 0 && total_nodes_in_P == order_ub) return;
 
     // Deterministic expansion order
-    std::sort(children_vec.begin(), children_vec.end());
     for (int u : children_vec) {
-        add_to_inside_P(u);
+        add_to_inside_P(u, g_enable_uncle_pruning ? &feasible_pool : nullptr);
         remove_from_inside_P(u);
     }
 }
@@ -744,6 +953,10 @@ int main(int argc, char* argv[]) {
             g_enable_edge_bound = false;
         } else if (arg == "--no-turan") {
             g_enable_turan = false;
+        } else if (arg == "--no-uncle") {
+            g_enable_uncle_pruning = false;
+        } else if (arg == "--uncle") {
+            g_enable_uncle_pruning = true;
         } else if (arg == "--order") {
             g_enable_order_bound = true;
         } else if (arg == "--edge") {
@@ -768,7 +981,8 @@ int main(int argc, char* argv[]) {
     std::cout << "Computed R: " << R << std::endl;
     std::cout << "Gates => order:" << (g_enable_order_bound?"on":"off")
               << " edge:" << (g_enable_edge_bound?"on":"off")
-              << " turan:" << (g_enable_turan?"on":"off") << std::endl;
+              << " turan:" << (g_enable_turan?"on":"off")
+              << " uncle:" << (g_enable_uncle_pruning?"on":"off") << std::endl;
 
     // 4. Derive directory path in a cross‑platform way.
     std::filesystem::path p(filename);
@@ -903,6 +1117,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Total Maximal Pseudo-Cliques: " << total_found << std::endl;
     std::cout << "\nTotal Iterations: " << PC.get_iter_count() << std::endl;
     std::cout << "Edge-bound prunes saved: " << PC.get_numcalls_saved_by_edge_bound() << std::endl;
+    std::cout << "Uncle-pruning hits: " << PC.get_numcalls_saved_by_uncle_pruning() << std::endl;
 
     return 0;
 }
