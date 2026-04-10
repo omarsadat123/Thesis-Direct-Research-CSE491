@@ -36,9 +36,16 @@ static bool g_enable_uncle_pruning = true; // Conditional Uncle Pruning (parent-
 //   slack>0: allows slight overlap for cases where condition-C prunes the pool.
 static int g_cup_np_slack = 0;   // set via --cup-slack=N
 
-// Gate 2 — pool-size ratio (O(1) after pool build, safety net):
-//   Now largely redundant when Gate 1 uses slack=0, but kept for ablation.
-//   Set very large (e.g. 1e9) to disable Gate 2 independently.
+// Gate 0 — degeneracy ceiling (checked once at startup, before any iteration):
+//   On graphs with high degeneracy ξ_G, the NP degree spread is always wide
+//   (maxNPdeg >> deltaP+1 at almost every node).  Gates 1 and 2 would fire on
+//   nearly every iteration, paying gate-check overhead while CUP fires rarely.
+//   If ξ_G > g_cup_max_degeneracy, disable uncle pruning globally for this graph.
+//   Data: tech ξ=23 (regression), bio-grid-human ξ=12 (improvement).
+//   Default: 15.  Set to INT_MAX to disable Gate 0.
+static int g_cup_max_degeneracy = 15;  // set via --cup-max-deg=N
+
+// (g_cup_pool_ratio kept for CLI compatibility but no longer used in hot path)
 static double g_cup_pool_ratio = 1.5;
 
 // counting sort with tracklist
@@ -842,67 +849,61 @@ void PseudoCliqueEnumerator::iter(int v) {
     const std::vector<int>* parent_pool = (g_enable_uncle_pruning ? parent_feasible_pool() : nullptr);
 
     if (g_enable_uncle_pruning && parent_pool != nullptr) {
-        // Conditional implication used for pruning:
-        // If θ|K| ≥ deg_{parent(K)}(s) + I(u,s), then
-        //   K ∪ {u} pseudo-clique ⇒ parent(K) ∪ {u} pseudo-clique.
-        // We use this to avoid scanning all NP buckets at K.
-        const long double theta_k = (long double)theta * (long double)total_nodes_in_P;
-        const int deg_parent_s = static_cast<int>(tracks[v].degP);  // deg_{K\{v}}(v)
-        const bool cond0 = (theta_k + 1e-12L >= (long double)deg_parent_s);
-        const bool cond1 = (theta_k + 1e-12L >= (long double)(deg_parent_s + 1));
+        // GATE 2 — child-level NP-spread check (O(1), replaces the old O(3)-loop):
+        //
+        // Gate 1 verified the PARENT's NP was flat (maxNPdeg_parent <= deltaP_parent+1).
+        // But after inserting vertex u into P to form the child:
+        //   - neighbors of u in NP get degNP += 1  →  maxNPdeg can increase by 1
+        //   - δ(P') can DROP if u has fewer P-edges than the old minimum
+        // Both effects together can widen the child's NP spread even when the parent was flat.
+        //
+        // Re-apply the same O(1) NP-spread check at the CHILD's current state.
+        // If it fails, skip CUP and pay O(1) instead of the old O(3)-loop + fallback.
+        // When it passes, parent_pool ≈ child's feasible NP range → no ratio loop needed.
+        if (maxNPdeg > deltaP + 1 + g_cup_np_slack) {
+            numcalls_gate2_fallback++;
+            // child NP spread too wide; pool exceeds child's 3-bucket baseline → skip CUP
+        } else {
+            // Both Gate 1 (parent) and Gate 2 (child) confirmed flat NP.
+            // Now check condition C: θk ≥ deg_{K\{v*(K)}}(v*(K)) + I
+            const long double theta_k = (long double)theta * (long double)total_nodes_in_P;
+            const int deg_parent_s = static_cast<int>(tracks[v].degP);  // deg_{K\{v}}(v)
+            const bool cond0 = (theta_k + 1e-12L >= (long double)deg_parent_s);
+            const bool cond1 = (theta_k + 1e-12L >= (long double)(deg_parent_s + 1));
 
-        if (cond0 || cond1) {
-            // GATE 2 (pool-size check): CUP replaces the baseline's 3-bucket scan
-            // (Type 1: [min_add_deg, δ-1], Type 2: δ, Type 3: δ+1) with a scan of
-            // parent_pool.  If the pool is much larger than what baseline would scan,
-            // CUP pays more work per call than it saves — fall back to baseline.
-            //
-            // baseline_est = total NP vertices in the 3 tight buckets [min_add_deg, δ+1].
-            // If pool.size() > g_cup_pool_ratio * baseline_est, Gate 2 rejects CUP.
-            // (Use countNP histogram for O(1) estimate.)
-            int baseline_est = 0;
-            for (int d = min_add_deg; d <= deltaP + 1 && d < (int)countNP.size(); ++d) {
-                if (d >= 0) baseline_est += countNP[d];
-            }
-            const int pool_sz = static_cast<int>(parent_pool->size());
-            const bool gate2_ok = (pool_sz <= static_cast<int>(g_cup_pool_ratio * (baseline_est + 1)));
+            if (cond0 || cond1) {
+                used_cup = true;
+                numcalls_saved_by_uncle_pruning++;
 
-            if (!gate2_ok) {
-                numcalls_gate2_fallback++;
-                // fall through: used_cup stays false → baseline path taken below
-            } else {
-            used_cup = true;
-            numcalls_saved_by_uncle_pruning++;
+                // Mark N(v) once for O(1) adjacency checks to v.
+                mark_neighbors_of(v);
+                bump_token(pool_mark, pool_token);
 
-            // Mark N(v) once for O(1) adjacency checks to v.
-            mark_neighbors_of(v);
-            bump_token(pool_mark, pool_token);
-
-            // 1) Scan parent-feasible pool.
-            //    - cond1: pool covers ALL candidates.
-            //    - only cond0: pool covers all I=0 candidates; I=1 gap handled below.
-            for (int u : *parent_pool) {
-                if (u < 0 || u >= graph.total_nodes) continue;
-                pool_mark[static_cast<size_t>(u)] = pool_token; // Micro-opt #2: membership for duplicate-skipping
-                if (tracks[u].inP) continue;
-                const bool u_adj_v = is_neighbor_of_vstar(u);
-                try_add_child(u, u_adj_v);
-            }
-
-            // 2) If cond1 is false, add the I=1 gap by scanning neighbors of v.
-            if (!cond1) {
-                const uint32_t beg = graph.csr_offsets[static_cast<size_t>(v)];
-                const uint32_t endN = graph.csr_offsets[static_cast<size_t>(v) + 1];
-                for (uint32_t idx = beg; idx < endN; ++idx) {
-                    const int u = static_cast<int>(graph.csr_neighbors[idx]);
+                // 1) Scan parent-feasible pool.
+                //    - cond1: pool covers ALL candidates.
+                //    - only cond0: pool covers all I=0 candidates; I=1 gap handled below.
+                for (int u : *parent_pool) {
                     if (u < 0 || u >= graph.total_nodes) continue;
-                    if (pool_mark[static_cast<size_t>(u)] == pool_token) continue; // already scanned via parent pool
+                    pool_mark[static_cast<size_t>(u)] = pool_token;
                     if (tracks[u].inP) continue;
-                    try_add_child(u, true);
+                    const bool u_adj_v = is_neighbor_of_vstar(u);
+                    try_add_child(u, u_adj_v);
+                }
+
+                // 2) If cond1 is false, add the I=1 gap by scanning neighbors of v.
+                if (!cond1) {
+                    const uint32_t beg = graph.csr_offsets[static_cast<size_t>(v)];
+                    const uint32_t endN = graph.csr_offsets[static_cast<size_t>(v) + 1];
+                    for (uint32_t idx = beg; idx < endN; ++idx) {
+                        const int u = static_cast<int>(graph.csr_neighbors[idx]);
+                        if (u < 0 || u >= graph.total_nodes) continue;
+                        if (pool_mark[static_cast<size_t>(u)] == pool_token) continue;
+                        if (tracks[u].inP) continue;
+                        try_add_child(u, true);
+                    }
                 }
             }
-            } // end Gate 2 else (CUP activated)
-        } // end if (cond0 || cond1)
+        } // end Gate 2 child NP-spread check
     } // end if (g_enable_uncle_pruning && parent_pool != nullptr)
 
     if (!used_cup) {
@@ -1028,8 +1029,12 @@ int main(int argc, char* argv[]) {
             // e.g. --cup-ratio=1.5  (Gate 2 threshold; large value disables Gate 2)
             g_cup_pool_ratio = std::stod(arg.substr(12));
         } else if (arg.rfind("--cup-slack=", 0) == 0) {
-            // e.g. --cup-slack=0  (Gate 1 slack; 0=exact, 1=allow 1 extra NP bucket)
+            // e.g. --cup-slack=0  (Gate 1&2 slack; 0=exact, 1=allow 1 extra NP bucket)
             g_cup_np_slack = std::stoi(arg.substr(12));
+        } else if (arg.rfind("--cup-max-deg=", 0) == 0) {
+            // e.g. --cup-max-deg=15  (Gate 0: disable CUP if ξ_G exceeds this)
+            // Use --cup-max-deg=999 to disable Gate 0 entirely.
+            g_cup_max_degeneracy = std::stoi(arg.substr(14));
         } else if (arg == "--order") {
             g_enable_order_bound = true;
         } else if (arg == "--edge") {
@@ -1057,7 +1062,8 @@ int main(int argc, char* argv[]) {
               << " turan:" << (g_enable_turan?"on":"off")
               << " uncle:" << (g_enable_uncle_pruning?"on":"off")
               << " cup-ratio:" << g_cup_pool_ratio
-              << " cup-slack:" << g_cup_np_slack << std::endl;
+              << " cup-slack:" << g_cup_np_slack
+              << " cup-max-deg:" << g_cup_max_degeneracy << std::endl;
 
     // 4. Derive directory path in a cross‑platform way.
     std::filesystem::path p(filename);
@@ -1139,7 +1145,18 @@ int main(int argc, char* argv[]) {
         std::cout << "Order bound disabled" << std::endl;
     }
 
-    PseudoCliqueEnumerator PC(graph, theta, minimum, maximum, mu); 
+    // GATE 0 — degeneracy ceiling: disable CUP on dense graphs where NP spread
+    // is structurally guaranteed to be wide (ξ_G > threshold).
+    // On such graphs Gates 1+2 fire on nearly every node, paying overhead for
+    // pool builds and child NP-spread checks while CUP activates < 1% of the time.
+    if (g_enable_uncle_pruning && graph.degeneracy > g_cup_max_degeneracy) {
+        std::cout << "Gate0: degeneracy ξ_G=" << graph.degeneracy
+                  << " > threshold " << g_cup_max_degeneracy
+                  << " → uncle pruning disabled for this graph." << std::endl;
+        g_enable_uncle_pruning = false;
+    }
+
+    PseudoCliqueEnumerator PC(graph, theta, minimum, maximum, mu);
 
     // Seeding strategy: Turán via EBBkC when enabled and R >= 3; otherwise node-by-node
     if (g_enable_turan && R >= 3 && graph.csr_n > 0) {
@@ -1193,10 +1210,10 @@ int main(int argc, char* argv[]) {
     std::cout << "\nTotal Iterations: " << PC.get_iter_count() << std::endl;
     std::cout << "Edge-bound prunes saved:    " << PC.get_numcalls_saved_by_edge_bound() << std::endl;
     std::cout << "Uncle-pruning CUP hits:     " << PC.get_numcalls_saved_by_uncle_pruning() << std::endl;
-    std::cout << "  Gate1 skipped (NP spread): " << PC.get_numcalls_gate1_skipped()
-              << "  (maxNPdeg > deltaP+1+" << g_cup_np_slack << "; pool superset of baseline, skipped)" << std::endl;
-    std::cout << "  Gate2 fallback (big pool): " << PC.get_numcalls_gate2_fallback()
-              << "  (cond-C fired but pool > " << g_cup_pool_ratio << "x baseline; reverted)" << std::endl;
+    std::cout << "  Gate1 skip (parent NP wide): " << PC.get_numcalls_gate1_skipped()
+              << "  (parent maxNPdeg > deltaP+1+" << g_cup_np_slack << "; pool build skipped)" << std::endl;
+    std::cout << "  Gate2 skip (child NP wide) : " << PC.get_numcalls_gate2_fallback()
+              << "  (child maxNPdeg > deltaP+1+" << g_cup_np_slack << " after vertex insertion; CUP skipped)" << std::endl;
 
     return 0;
 }
