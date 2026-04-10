@@ -23,7 +23,7 @@ static bool g_enable_order_bound = true;
 static bool g_enable_edge_bound  = true;
 static bool g_enable_turan       = true;
 static bool g_enable_so_edge_bound = true;
-static bool g_enable_lemma7      = false;  // Phase 2: Lemma 7 SO-EB (disabled by default for safety)
+static bool g_enable_so_edge_bound_l7 = false;  // Phase 2: Lemma 7 SO-EB (disabled by default for safety)
 
 // counting sort with tracklist
 class Graph {
@@ -302,7 +302,7 @@ private:
     // Optional accounting (like fpce.c/mod-edge-order)
     unsigned long long numcalls_saved_by_edge_bound = 0ULL;
     unsigned long long numcalls_saved_by_so_edge_bound = 0ULL;
-    unsigned long long numcalls_saved_by_lemma7 = 0ULL;  // Phase 2: Lemma 7-specific savings
+    unsigned long long numcalls_saved_by_so_edge_bound_l7 = 0ULL;
 
     // Update report_if_new to take size directly
     inline void report_if_new(int size) {
@@ -375,47 +375,51 @@ private:
         return lhs_required_edges > static_cast<int>(std::floor(rhs));
     }
 
-    // Phase 2: Lemma 7 SO-EB with two-branch formula using vertex-level core numbers
-    // Returns true if the two-branch condition proves P∪{u} cannot contain ℓ-PC
-    // Returns false if either branch leaves room for ℓ-PC (avoid false pruning)
-    // Uses conservative hat-estimates with core numbers for tighter bounds
-    inline bool so_edge_bound_lemma7(int u, int deltaP) const {
+    // Phase 2: safe Lemma-7-only extension.
+    // We only use the tight branch when c_hat is provably above delta_hat + t_prime;
+    // otherwise the min() regime is unsafe and must defer to Lemma 6.
+    inline bool so_edge_bound_prune_l7_extra(int u, int deltaP) const {
         const int t_prime = min_size - total_nodes_in_P - 1;
         if (t_prime <= 0) return false;
 
-        // Hat-estimates using core numbers
         const int e_hat = total_edges_in_P + static_cast<int>(tracks[u].degNP);
         const int delta_hat = std::min(static_cast<int>(tracks[u].degNP), deltaP + 1);
+        const int cu = (u >= 0 && u < (int)graph.core_numbers.size())
+                     ? graph.core_numbers[u]
+                     : 0;
+        const int c_hat = std::min(current_min_core_in_P_fast(), cu);
 
-        // Core-based hat-estimate: ĉ(P,u) = min(c(P), core_numbers[u])
-        int c_hat_u = (u >= 0 && u < (int)graph.core_numbers.size())
-                      ? graph.core_numbers[u]
-                      : 0;
-        const int c_hat = std::min(current_min_core_in_P_fast(), c_hat_u);
+        if (c_hat <= delta_hat + t_prime) return false;
 
-        // Lemma 7 two-branch evaluation: g_hat = c_hat - delta_hat - 1
-        const int g_hat = c_hat - delta_hat - 1;
+        const int eta_hat = delta_hat + t_prime;
+        const double rhs1 = static_cast<double>(e_hat)
+                          + eta_hat * (t_prime + delta_hat + 0.5)
+                          - 0.5 * (delta_hat + 1) * (2 * delta_hat + 1);
+        return lhs_required_edges > static_cast<int>(std::floor(rhs1));
+    }
 
-        // Branch handling: prune only if applicable branch would prune
-        // (If g_hat doesn't fit one branch, that branch doesn't constrain)
-        if (g_hat < 0) {
-            // Branch 1 (conservative): use simpler bound when g_hat < 0
-            // RHS = e_hat + t' × delta_hat (Lemma 8 shape fallback)
-            const double rhs = static_cast<double>(e_hat) + t_prime * delta_hat;
-            return lhs_required_edges > static_cast<int>(std::floor(rhs));
-        } else {
-            // Branch 2 (tight): g_hat >= 0, use polynomial form (EDGE_BOUND1)
-            // max_val = min(c_hat, delta_hat + t')
-            const int max_val = std::min(c_hat, delta_hat + t_prime);
+    inline bool so_edge_bound_prune_l7(int u, int deltaP) const {
+        if (so_edge_bound_prune_l7_extra(u, deltaP)) return true;
+        return so_edge_bound_prune(u, deltaP);
+    }
 
-            // RHS = e_hat + max_val×(t' + delta_hat + 0.5) - 0.5×(delta_hat+1)×(2×delta_hat+1)
-            const double term1 = static_cast<double>(e_hat);
-            const double term2 = max_val * (t_prime + delta_hat + 0.5);
-            const double term3 = 0.5 * (delta_hat + 1) * (2 * delta_hat + 1);
-            const double rhs = term1 + term2 - term3;
-
-            return lhs_required_edges > static_cast<int>(std::floor(rhs));
+    inline bool prune_candidate_by_soeb(int u, int deltaP) {
+        if (g_enable_so_edge_bound && so_edge_bound_prune(u, deltaP)) {
+            numcalls_saved_by_so_edge_bound++;
+            return true;
         }
+
+        if (g_enable_so_edge_bound_l7) {
+            const bool pruned_by_l7 = g_enable_so_edge_bound
+                ? so_edge_bound_prune_l7_extra(u, deltaP)
+                : so_edge_bound_prune_l7(u, deltaP);
+            if (pruned_by_l7) {
+                numcalls_saved_by_so_edge_bound_l7++;
+                return true;
+            }
+        }
+
+        return false;
     }
 
 public:
@@ -543,8 +547,8 @@ public:
         return numcalls_saved_by_so_edge_bound;
     }
 
-    unsigned long long get_numcalls_saved_by_lemma7() const {
-        return numcalls_saved_by_lemma7;
+    unsigned long long get_numcalls_saved_by_so_edge_bound_l7() const {
+        return numcalls_saved_by_so_edge_bound_l7;
     }
 
     // Enumerate starting from a Turán seed (R-clique) provided by EBBkC, takes a "seed" clique (found by the external library) and "teleports" the algorithm to that state, effectively skipping the early levels of the recursion tree to prune the search space.
@@ -734,11 +738,7 @@ void PseudoCliqueEnumerator::iter(int v) {
     // ---- Type 1: deg == [0..δ(P)-1] ----
     for (int deg = std::max(0, min_add_deg); deg < deltaP; ++deg) { // iterate through the neighbors of vertex v with degree less than deltaP
         for (int u = headNP[deg]; u != -1; u = nextNP[u]) { // iterate through the neighbors of vertex v with degree deg
-            // Phase 2: Lemma 7 pruning check (collection-time, before add cost)
-            if (g_enable_lemma7 && so_edge_bound_lemma7(u, deltaP)) {
-                numcalls_saved_by_lemma7++;
-                continue;
-            }
+            if (prune_candidate_by_soeb(u, deltaP)) continue;
             children_vec.push_back(u); // add the neighbor to the children vector
         }
     }
@@ -746,19 +746,10 @@ void PseudoCliqueEnumerator::iter(int v) {
     // ---- Type 2: deg == δ(P) ----
     for (int u = headNP[deltaP]; u != -1; u = nextNP[u]) {
         if (tracks[u].degNP < min_add_deg) continue; // if the neighbor is in P or has degree less than min_add_deg, skip
+        if (prune_candidate_by_soeb(u, deltaP)) continue;
         if (u < v) {
-            // Phase 2: Lemma 7 pruning check (collection-time, before add cost)
-            if (g_enable_lemma7 && so_edge_bound_lemma7(u, deltaP)) {
-                numcalls_saved_by_lemma7++;
-                continue;
-            }
             children_vec.push_back(u); // add the neighbor to the children vector
         } else {
-            // Phase 2: Skip has_edge if Lemma 7 prunes
-            if (g_enable_lemma7 && so_edge_bound_lemma7(u, deltaP)) {
-                numcalls_saved_by_lemma7++;
-                continue;
-            }
             if (graph.has_edge(v, u)) { // u must be connected to v AND to every other node x in the minimum-degree bucket that is smaller than u
                 bool valid = true;
                 // must be adjacent to all x in P[δ(P)] with x < u
@@ -776,12 +767,7 @@ void PseudoCliqueEnumerator::iter(int v) {
         if (targetDeg < static_cast<int>(headNP.size())) {
             for (int u = headNP[targetDeg]; u != -1; u = nextNP[u]) {
                 if (tracks[u].degNP < min_add_deg) continue;
-
-                // Phase 2: Lemma 7 pruning check (collection-time, before has_edge calls)
-                if (g_enable_lemma7 && so_edge_bound_lemma7(u, deltaP)) {
-                    numcalls_saved_by_lemma7++;
-                    continue;
-                }
+                if (prune_candidate_by_soeb(u, deltaP)) continue;
 
                 if (!graph.has_edge(v, u) || !(v > u)) continue; // allow this child u if its ID is smaller than the current node v
 
@@ -807,10 +793,6 @@ void PseudoCliqueEnumerator::iter(int v) {
     // Deterministic expansion order
     if (children_vec.size() > 1) std::sort(children_vec.begin(), children_vec.end());
     for (int u : children_vec) {
-        if (g_enable_so_edge_bound && so_edge_bound_prune(u, deltaP)) {
-            numcalls_saved_by_so_edge_bound++;
-            continue;
-        }
         add_to_inside_P(u);
         remove_from_inside_P(u);
     }
@@ -856,16 +838,18 @@ int main(int argc, char* argv[]) {
             minimum = std::stoi(argv[++arg_idx]);
         } else if (arg == "--mode" && arg_idx + 1 < argc) {
             int mode = std::stoi(argv[++arg_idx]);
-            if (mode == 1) { g_enable_order_bound = false; g_enable_edge_bound = false; g_enable_turan = false; g_enable_so_edge_bound = false; }
-            else if (mode == 2) { g_enable_order_bound = true; g_enable_edge_bound = false; g_enable_turan = false; g_enable_so_edge_bound = false; }
-            else if (mode == 3) { g_enable_order_bound = true; g_enable_edge_bound = true; g_enable_turan = false; g_enable_so_edge_bound = false; }
-            else { g_enable_order_bound = true; g_enable_edge_bound = true; g_enable_turan = true; g_enable_so_edge_bound = true; }
+            if (mode == 1) { g_enable_order_bound = false; g_enable_edge_bound = false; g_enable_turan = false; g_enable_so_edge_bound = false; g_enable_so_edge_bound_l7 = false; }
+            else if (mode == 2) { g_enable_order_bound = true; g_enable_edge_bound = false; g_enable_turan = false; g_enable_so_edge_bound = false; g_enable_so_edge_bound_l7 = false; }
+            else if (mode == 3) { g_enable_order_bound = true; g_enable_edge_bound = true; g_enable_turan = false; g_enable_so_edge_bound = false; g_enable_so_edge_bound_l7 = false; }
+            else { g_enable_order_bound = true; g_enable_edge_bound = true; g_enable_turan = true; g_enable_so_edge_bound = true; g_enable_so_edge_bound_l7 = false; }
         } else if (arg == "--no-order") {
             g_enable_order_bound = false;
         } else if (arg == "--no-edge") {
             g_enable_edge_bound = false;
         } else if (arg == "--no-soeb") {
             g_enable_so_edge_bound = false;
+        } else if (arg == "--no-soeb-l7" || arg == "--no-lemma7") {
+            g_enable_so_edge_bound_l7 = false;
         } else if (arg == "--no-turan") {
             g_enable_turan = false;
         } else if (arg == "--order") {
@@ -874,12 +858,10 @@ int main(int argc, char* argv[]) {
             g_enable_edge_bound = true;
         } else if (arg == "--soeb") {
             g_enable_so_edge_bound = true;
+        } else if (arg == "--soeb-l7" || arg == "--lemma7") {
+            g_enable_so_edge_bound_l7 = true;
         } else if (arg == "--turan") {
             g_enable_turan = true;
-        } else if (arg == "--lemma7") {
-            g_enable_lemma7 = true;
-        } else if (arg == "--no-lemma7") {
-            g_enable_lemma7 = false;
         } else {
             std::cerr << "Unknown option: " << arg << std::endl;
             return 1;
@@ -900,7 +882,7 @@ int main(int argc, char* argv[]) {
               << " edge:" << (g_enable_edge_bound?"on":"off")
               << " turan:" << (g_enable_turan?"on":"off")
               << " soeb:" << (g_enable_so_edge_bound?"on":"off")
-              << " lemma7:" << (g_enable_lemma7?"on":"off") << std::endl;
+              << " soeb-l7:" << (g_enable_so_edge_bound_l7?"on":"off") << std::endl;
 
     // 4. Derive directory path in a cross‑platform way.
     std::filesystem::path p(filename);
@@ -1036,7 +1018,7 @@ int main(int argc, char* argv[]) {
     std::cout << "iter_count: " << PC.get_iter_count() << std::endl;
     std::cout << "numcalls_saved_by_edge_bound: " << PC.get_numcalls_saved_by_edge_bound() << std::endl;
     std::cout << "numcalls_saved_by_so_edge_bound: " << PC.get_numcalls_saved_by_so_edge_bound() << std::endl;
-    std::cout << "numcalls_saved_by_lemma7: " << PC.get_numcalls_saved_by_lemma7() << std::endl;
+    std::cout << "numcalls_saved_by_so_edge_bound_l7: " << PC.get_numcalls_saved_by_so_edge_bound_l7() << std::endl;
 
     return 0;
 }
