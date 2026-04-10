@@ -24,10 +24,21 @@ static bool g_enable_edge_bound  = true;
 static bool g_enable_turan       = true;
 static bool g_enable_uncle_pruning = true; // Conditional Uncle Pruning (parent-feasible pool)
 
-// Dynamic CUP Gate 2 ratio threshold.
-// If parent_pool.size() > g_cup_pool_ratio * baseline_3bucket_count, Gate 2 rejects CUP
-// and falls back to baseline scan at that node.  Set to a very large value to disable.
-// Default 1.5: allow CUP when pool is at most 50% wider than what baseline would scan.
+// Dynamic CUP gating parameters.
+//
+// Gate 1 — NP-spread check (O(1) before pool build):
+//   Only build parent pool when maxNPdeg <= deltaP + g_cup_np_slack.
+//   Rationale: parent_pool covers [min_add_deg .. maxNPdeg].
+//              baseline scan covers [min_add_deg .. deltaP+1].
+//   When maxNPdeg > deltaP+slack the pool is a strict superset of what baseline
+//   scans → CUP will always cost more than baseline → skip pool build entirely.
+//   slack=0: mathematically exact (pool ⊆ baseline iff maxNPdeg ≤ deltaP+1).
+//   slack>0: allows slight overlap for cases where condition-C prunes the pool.
+static int g_cup_np_slack = 0;   // set via --cup-slack=N
+
+// Gate 2 — pool-size ratio (O(1) after pool build, safety net):
+//   Now largely redundant when Gate 1 uses slack=0, but kept for ablation.
+//   Set very large (e.g. 1e9) to disable Gate 2 independently.
 static double g_cup_pool_ratio = 1.5;
 
 // counting sort with tracklist
@@ -756,23 +767,25 @@ void PseudoCliqueEnumerator::iter(int v) {
     // Pool(P) := { u ∉ P : deg_P(u) ≥ ceil(theta_P) }, i.e. all vertices that are pseudo-clique feasible w.r.t. P.
     // This pool is computed once per node and is re-used by all children for conditional pruning.
     //
-    // GATE 1 (O(1) pre-check): Only build the pool if condition C is plausible at
-    // the children of this node.  At a child P' = P ∪ {u}, condition C requires:
-    //   θ * |P'| ≥ deg_{P' \ {v*(P')}}(v*(P')) + I
-    // We use tracks[v].degP — the degree of the current v*(P) inside P\{v*(P)} — as
-    // a conservative proxy for the child's v* degree (v* rarely changes after one
-    // insertion).  If θ*(k+1) < proxy_deg, condition C will almost certainly be false
-    // at every child, so we skip the O(|NP|) pool build entirely.
+    // GATE 1 — NP-spread check (O(1), fires before any pool allocation):
+    //
+    // parent_pool covers NP vertices with deg in [min_add_deg .. maxNPdeg].
+    // Baseline scan covers NP vertices with deg in [min_add_deg .. deltaP+1].
+    //
+    // Therefore parent_pool ⊆ baseline  iff  maxNPdeg <= deltaP + 1.
+    // When maxNPdeg > deltaP + g_cup_np_slack the pool is a STRICT SUPERSET of what
+    // baseline would scan, so CUP cannot be cheaper — skip pool build entirely.
+    //
+    // This is the correct gating condition.  The previous proxy (theta*(k+1) >= degP)
+    // was vacuously true for all valid PCs and never fired (0 skips on all benchmarks).
     std::vector<int> feasible_pool;
     bool pool_built = false;
     if (g_enable_uncle_pruning) {
-        const long double theta_k1  = (long double)theta * (total_nodes_in_P + 1);
-        const int         proxy_deg = static_cast<int>(tracks[v].degP); // deg of v*(P) inside P\{v*}
-        if (theta_k1 + 1e-9L >= (long double)proxy_deg) {
+        if (maxNPdeg <= deltaP + 1 + g_cup_np_slack) {
             build_parent_feasible_pool(feasible_pool, min_add_deg);
             pool_built = true;
         } else {
-            numcalls_gate1_skipped++;
+            numcalls_gate1_skipped++;  // maxNPdeg spread too wide; pool would exceed baseline
         }
     }
 
@@ -1014,6 +1027,9 @@ int main(int argc, char* argv[]) {
         } else if (arg.rfind("--cup-ratio=", 0) == 0) {
             // e.g. --cup-ratio=1.5  (Gate 2 threshold; large value disables Gate 2)
             g_cup_pool_ratio = std::stod(arg.substr(12));
+        } else if (arg.rfind("--cup-slack=", 0) == 0) {
+            // e.g. --cup-slack=0  (Gate 1 slack; 0=exact, 1=allow 1 extra NP bucket)
+            g_cup_np_slack = std::stoi(arg.substr(12));
         } else if (arg == "--order") {
             g_enable_order_bound = true;
         } else if (arg == "--edge") {
@@ -1040,7 +1056,8 @@ int main(int argc, char* argv[]) {
               << " edge:" << (g_enable_edge_bound?"on":"off")
               << " turan:" << (g_enable_turan?"on":"off")
               << " uncle:" << (g_enable_uncle_pruning?"on":"off")
-              << " cup-ratio:" << g_cup_pool_ratio << std::endl;
+              << " cup-ratio:" << g_cup_pool_ratio
+              << " cup-slack:" << g_cup_np_slack << std::endl;
 
     // 4. Derive directory path in a cross‑platform way.
     std::filesystem::path p(filename);
@@ -1176,9 +1193,9 @@ int main(int argc, char* argv[]) {
     std::cout << "\nTotal Iterations: " << PC.get_iter_count() << std::endl;
     std::cout << "Edge-bound prunes saved:    " << PC.get_numcalls_saved_by_edge_bound() << std::endl;
     std::cout << "Uncle-pruning CUP hits:     " << PC.get_numcalls_saved_by_uncle_pruning() << std::endl;
-    std::cout << "  Gate1 skipped (no pool):  " << PC.get_numcalls_gate1_skipped()
-              << "  (nodes where proxy cond-C was false; pool build avoided)" << std::endl;
-    std::cout << "  Gate2 fallback (big pool):" << PC.get_numcalls_gate2_fallback()
+    std::cout << "  Gate1 skipped (NP spread): " << PC.get_numcalls_gate1_skipped()
+              << "  (maxNPdeg > deltaP+1+" << g_cup_np_slack << "; pool superset of baseline, skipped)" << std::endl;
+    std::cout << "  Gate2 fallback (big pool): " << PC.get_numcalls_gate2_fallback()
               << "  (cond-C fired but pool > " << g_cup_pool_ratio << "x baseline; reverted)" << std::endl;
 
     return 0;
