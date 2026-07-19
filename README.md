@@ -1,43 +1,76 @@
-# Thesis Direct Research CSE491
+# FPCE*: An Optimized Exact Pseudo-Clique Enumerator
 
-A curated undergraduate thesis and direct research repository for CSE491. This project combines notebook-based experimentation, graph and order-bound research code, datasets, and the final thesis report.
+This repository contains the implementation artifacts and experimental materials for the directed research thesis **“FPCE*: An Optimized Exact Pseudo-Clique Enumerator”** (CSE491/ECE, North South University).
 
-## Overview
+The work focuses on exact \((\ell, \theta)\)-pseudo-clique enumeration on large graphs, with implementation and optimization choices grounded in the thesis report.
 
-This repository contains research artifacts for multiple experiments and implementations, including:
+## Table of Contents
 
-- notebook-based analysis and exploration
-- C and C++ source code for experiment-driven implementations
-- benchmark datasets used throughout the thesis work
-- the final thesis report in PDF format
+- [Project Summary](#project-summary)
+- [Repository Structure](#repository-structure)
+- [Thesis Report (Primary Reference)](#thesis-report-primary-reference)
+- [Quick Start](#quick-start)
+- [Citation](#citation)
 
-## Repository structure
+## Project Summary
 
-- `Dense_PCE/` — notebook-based work for the Dense PCE project
-- `Graph/` — graph-related experiments and supporting data
-- `OrderBound/` — C/C++ code for order-bound experiments
-- `dataset/` — `.grh` benchmark datasets used in the research
-- `Thesis report direct research.pdf` — final thesis report with more project details
+According to the thesis report, the project builds an optimized exact pseudo-clique enumerator around the DensePCE/FPCE line of work, including:
 
-## Research materials
+- reverse-search based enumeration
+- pruning strategies such as order-bound and core-aware bounds
+- optimized graph/data handling for large real-world datasets
+- benchmarking on multiple graph datasets and synthetic graphs
 
-For more information about the project, methodology, and results, please refer to:
+For full methodology, proofs, and result analysis, use the thesis PDF linked below.
 
-- `Thesis report direct research.pdf`
+## Repository Structure
 
-## How to explore the project
+| Path | Purpose |
+| --- | --- |
+| `Dense_PCE/` | Main Dense-PCE research workspace (notebooks, scripts, C/C++ code, and PCE sources). |
+| `Dense_PCE/Dense-PCE-main/` | Core experimentation area (`dense-pce.cpp`, notebooks, runner scripts, generated outputs). |
+| `Dense_PCE/Dense-PCE-main/pce12/` | Upstream/legacy PCE implementation and build files. |
+| `OrderBound/` | Order-bound related implementation variant (`dense-pce.cpp`). |
+| `dataset/` | Real graph benchmark datasets in `.grh` format used in experiments. |
+| `Graph/` | Additional graph data bundle (`graph_dataset.zip`). |
+| `Thesis report direct research.pdf` | Full thesis document with problem definition, methodology, experiments, and conclusions. |
 
-1. Start with the thesis report to understand the goals and experimental design.
-2. Review the notebooks in `Dense_PCE/` for analysis and experimentation.
-3. Inspect the source code in `OrderBound/` and related folders for implementation details.
-4. Use the datasets in `dataset/` and `Graph/` as inputs for reproducing or extending experiments.
+## Thesis Report (Primary Reference)
 
-## Notes
+Read the thesis first for complete context:
 
-- The repository includes large files and datasets for reproducibility.
-- If you add new experiments, keep them grouped by folder and give each section a short README.
-- Consider adding notebook summaries or execution notes in each major project directory.
+- [`Thesis report direct research.pdf`](./Thesis%20report%20direct%20research.pdf)
+
+This is the authoritative source for:
+
+- formal definitions (clique, edge density, \((\ell,\theta)\)-pseudo-clique)
+- algorithmic design and optimization rationale
+- experimental setup, ablation details, and performance comparisons
+
+## Quick Start
+
+### 1) Build the original PCE binary
+
+```bash
+cd Dense_PCE/Dense-PCE-main/pce12
+make
+```
+
+### 2) Build Dense-PCE implementation
+
+```bash
+cd Dense_PCE/Dense-PCE-main
+g++ -O3 dense-pce.cpp -o dense-pce
+```
+
+### 3) Explore inputs and experiments
+
+- Datasets: `dataset/*.grh`
+- Synthetic graph generation: `Dense_PCE/Dense-PCE-main/generate_synth_graphs.ipynb`
+- Existing run helpers: `Dense_PCE/Dense-PCE-main/run.sh`, `run_both.sh`
 
 ## Citation
 
-If you use this repository in academic work, please cite the thesis appropriately.
+If you use this repository in academic work, please cite the thesis report:
+
+- FPCE*: An Optimized Exact Pseudo-Clique Enumerator (Directed Research, North South University, Spring 2026).
