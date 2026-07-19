@@ -1,42 +1,50 @@
-# Thesis Direct Research CSE491
+# FPCE: Optimized Exact Pseudo-Clique Enumeration
 
-A curated undergraduate thesis and direct research repository for CSE491. This project combines notebook-based experimentation, graph and order-bound research code, datasets, and the final thesis report.
+This repository collects the research artifacts for the CSE491 direct research project on **FPCE**, with supporting material for **DensePCE** and related pseudo-clique enumeration experiments. The main thesis report is the canonical reference for methodology, implementation details, and results.
 
-## Overview
+## Table of Contents
 
-This repository contains research artifacts for multiple experiments and implementations, including:
+- [Summary](#summary)
+- [Repository Structure](#repository-structure)
+- [Thesis Reference](#thesis-reference)
+- [Quick Start](#quick-start)
+- [Citation](#citation)
 
-- notebook-based analysis and exploration
-- C and C++ source code for experiment-driven implementations
-- benchmark datasets used throughout the thesis work
+## Summary
+
+The project combines:
+
+- notebook-based experimentation and analysis
+- C and C++ implementations for enumeration and bound-based experiments
+- datasets used for testing and benchmarking
 - the final thesis report in PDF format
 
-## Repository structure
+## Repository Structure
 
-- `Dense_PCE/` — notebook-based work for the Dense PCE project
-- `Graph/` — graph-related experiments and supporting data
-- `OrderBound/` — C/C++ code for order-bound experiments
-- `dataset/` — `.grh` benchmark datasets used in the research
-- `Thesis report direct research.pdf` — final thesis report with more project details
+| Path | Purpose |
+| --- | --- |
+| `Dense_PCE/` | Top-level area for DensePCE work, notebooks, and experiment artifacts. |
+| `Dense_PCE/Dense-PCE-main/` | Main DensePCE implementation and research workspace. |
+| `Dense_PCE/Dense-PCE-main/pce12/` | PCE-related code and experiment-specific files. |
+| `OrderBound/` | Order-bound implementation and supporting C/C++ research code. |
+| `dataset/` | Graph benchmark datasets in `.grh` format. |
+| `Graph/` | Additional graph inputs, examples, or supporting materials. |
+| `Thesis report direct research.pdf` | Primary thesis document and canonical project reference. |
 
-## Research materials
+## Thesis Reference
 
-For more information about the project, methodology, and results, please refer to:
+The thesis report is the best starting point for understanding the project goals, experimental setup, and conclusions:
 
-- `Thesis report direct research.pdf`
+- [`Thesis report direct research.pdf`](./Thesis%20report%20direct%20research.pdf)
 
-## How to explore the project
+## Quick Start
 
-1. Start with the thesis report to understand the goals and experimental design.
-2. Review the notebooks in `Dense_PCE/` for analysis and experimentation.
-3. Inspect the source code in `OrderBound/` and related folders for implementation details.
-4. Use the datasets in `dataset/` and `Graph/` as inputs for reproducing or extending experiments.
+A minimal workflow consistent with the repository contents:
 
-## Notes
-
-- The repository includes large files and datasets for reproducibility.
-- If you add new experiments, keep them grouped by folder and give each section a short README.
-- Consider adding notebook summaries or execution notes in each major project directory.
+1. Read the thesis PDF to understand the research context.
+2. Inspect the notebooks in `Dense_PCE/` for experimentation and analysis.
+3. Review the implementation code in `OrderBound/` and `Dense_PCE/Dense-PCE-main/`.
+4. Explore the datasets in `dataset/` and `Graph/` for benchmarking or reproduction.
 
 ## Citation
 
