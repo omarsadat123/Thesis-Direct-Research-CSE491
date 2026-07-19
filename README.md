@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚀 FPCE: Optimized Exact Pseudo-Clique Enumeration
+# 🚀 FPCE*: An Optimized Exact Pseudo-Clique Enumeration
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f2027,50:203a43,100:2c5364&height=220&section=header&text=FPCE%20Research%20Repository&fontSize=38&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=CSE491%20Direct%20Research%20Artifacts&descAlignY=58" alt="FPCE Banner" />
 
