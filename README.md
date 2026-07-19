@@ -1,37 +1,43 @@
 # Thesis Direct Research CSE491
 
-A curated repository for the CSE491 undergraduate thesis / direct research project. It contains source code, datasets, notebooks, and the final thesis report.
+A curated undergraduate thesis and direct research repository for CSE491. This project combines notebook-based experimentation, graph and order-bound research code, datasets, and the final thesis report.
+
+## Overview
+
+This repository contains research artifacts for multiple experiments and implementations, including:
+
+- notebook-based analysis and exploration
+- C and C++ source code for experiment-driven implementations
+- benchmark datasets used throughout the thesis work
+- the final thesis report in PDF format
 
 ## Repository structure
 
 - `Dense_PCE/` — notebook-based work for the Dense PCE project
-- `Graph/` — graph-related experiments and datasets
-- `OrderBound/` — C/C++ implementation used for order-bound experiments
-- `dataset/` — benchmark `.grh` datasets used for experimentation
-- `Thesis report direct research.pdf` — final thesis report
+- `Graph/` — graph-related experiments and supporting data
+- `OrderBound/` — C/C++ code for order-bound experiments
+- `dataset/` — `.grh` benchmark datasets used in the research
+- `Thesis report direct research.pdf` — final thesis report with more project details
 
-## Contents
+## Research materials
 
-This repository includes:
+For more information about the project, methodology, and results, please refer to:
 
-- Jupyter notebooks for analysis and experimentation
-- C and C++ source code for performance-sensitive components
-- Supporting datasets and benchmark inputs
-- A final thesis report in PDF format
+- `Thesis report direct research.pdf`
 
-## How to use
+## How to explore the project
 
-1. Open the notebooks in `Dense_PCE/` or related project folders.
-2. Build the C/C++ code in `OrderBound/` if you want to run the order-bound experiments.
-3. Use the datasets in `dataset/` or `Graph/` as inputs for testing and evaluation.
-4. Refer to the thesis report for methodology, results, and conclusions.
+1. Start with the thesis report to understand the goals and experimental design.
+2. Review the notebooks in `Dense_PCE/` for analysis and experimentation.
+3. Inspect the source code in `OrderBound/` and related folders for implementation details.
+4. Use the datasets in `dataset/` and `Graph/` as inputs for reproducing or extending experiments.
 
 ## Notes
 
-- Large datasets are included in the repository for reproducibility.
-- If you add new experiments, keep them grouped by project folder.
-- Consider adding short README files inside each major subfolder for future maintainability.
+- The repository includes large files and datasets for reproducibility.
+- If you add new experiments, keep them grouped by folder and give each section a short README.
+- Consider adding notebook summaries or execution notes in each major project directory.
 
 ## Citation
 
-If this repository is used in academic work, please cite the thesis project appropriately.
+If you use this repository in academic work, please cite the thesis appropriately.
